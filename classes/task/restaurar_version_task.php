@@ -5,6 +5,7 @@ defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
 require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/lib.php');
 
 class restaurar_version_task {
 
@@ -25,7 +26,12 @@ class restaurar_version_task {
             // 2. Preparar el directorio temporal de restauración
             $folder = restore_controller::get_tempdir_name($courseid, $userid);
             $path = $CFG->dataroot . '/temp/backup/' . $folder;
-            $file->extract_to_pathname(get_file_packer('application/vnd.moodle.backup'), $path);
+            check_dir_exists($path, true, true);
+
+            $archivepath = $path . '/' . $file->get_filename();
+            $file->copy_content_to($archivepath);
+            $mbzpath = local_versionamiento_de_aulas_prepare_backup_archive($archivepath);
+            get_file_packer('application/vnd.moodle.backup')->extract_to_pathname($mbzpath, $path);
 
             $this->log("Archivo extraído. Configurando controlador...", $isweb, 40);
 
