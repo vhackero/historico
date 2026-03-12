@@ -5,6 +5,7 @@ defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
 require_once($CFG->dirroot . '/backup/util/includes/backup_includes.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/lib.php');
 
 class generar_respaldos_task extends \core\task\scheduled_task {
     public function get_name() { return "Procesar cola de respaldos de aulas"; }
@@ -73,7 +74,11 @@ class generar_respaldos_task extends \core\task\scheduled_task {
 
                     $clean_name = clean_filename($shortname);
                     $new_filename = "Respaldo_{$clean_name}_ID{$t->courseid}_T{$t->id}_" . date('Ymd_His') . ".mbz";
-                    $file->copy_content_to($target_dir . $new_filename);
+                    $mbzpath = $target_dir . $new_filename;
+                    $file->copy_content_to($mbzpath);
+
+                    $zstpath = local_versionamiento_de_aulas_compress_mbz_to_zst($mbzpath);
+                    $zstfilename = basename($zstpath);
 
                     $fs = get_file_storage();
                     $file_record = [
@@ -82,10 +87,10 @@ class generar_respaldos_task extends \core\task\scheduled_task {
                         'filearea' => 'backup',
                         'itemid' => $t->id,
                         'filepath' => '/',
-                        'filename' => $new_filename,
+                        'filename' => $zstfilename,
                         'userid' => $t->userid,
                     ];
-                    $stored_file = $fs->create_file_from_storedfile($file_record, $file);
+                    $stored_file = $fs->create_file_from_pathname($file_record, $zstpath);
 
                     $DB->update_record('local_ver_aulas_cola', (object)[
                         'id' => $t->id,

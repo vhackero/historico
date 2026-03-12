@@ -7,6 +7,7 @@
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/lib.php');
 
 $courseid = required_param('id', PARAM_INT);
 $course = $DB->get_record('course', array('id' => $courseid), '*', MUST_EXIST);
@@ -99,7 +100,11 @@ if ($file_id && $confirm && $puede_restaurar) {
         if (!$file) throw new moodle_exception('filenotfound', 'error');
         $folder = \restore_controller::get_tempdir_name($courseid, $admin_user->id);
         $temp_path = $CFG->dataroot . '/temp/backup/' . $folder;
-        $file->extract_to_pathname(get_file_packer('application/vnd.moodle.backup'), $temp_path);
+        check_dir_exists($temp_path, true, true);
+        $archive_path = $temp_path . '/' . $file->get_filename();
+        $file->copy_content_to($archive_path);
+        $mbz_path = local_versionamiento_de_aulas_prepare_backup_archive($archive_path);
+        get_file_packer('application/vnd.moodle.backup')->extract_to_pathname($mbz_path, $temp_path);
         $rc = new \restore_controller($folder, $courseid, \backup::INTERACTIVE_NO, \backup::MODE_GENERAL, $admin_user->id, \backup::TARGET_EXISTING_ADDING);
         if ($rc->execute_precheck()) { $rc->execute_plan(); }
         $rc->destroy();

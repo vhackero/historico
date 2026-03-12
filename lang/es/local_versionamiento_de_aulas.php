@@ -6,3 +6,5 @@ $string['request_success'] = 'Solicitud recibida. Se procesará a medianoche.';
 $string['my_courses'] = 'Mis Cursos Disponibles';
 $string['my_backups'] = 'Mis Respaldos Listos';
 $string['messageprovider:backup_completed'] = 'Notificación de respaldo de aula completado';
+$string['errorzstdcompression'] = 'Error al comprimir el respaldo MBZ con Zstandard.';
+$string['errorzstddecompression'] = 'Error al descomprimir el respaldo Zstandard para restauración.';
