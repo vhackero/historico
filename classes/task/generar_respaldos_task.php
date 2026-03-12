@@ -42,7 +42,8 @@ class generar_respaldos_task extends \core\task\scheduled_task {
         $total = count($tareas);
         $count = 0;
         $admin = get_admin();
-        $target_dir = get_config('local_versionamiento_de_aulas', 'repository_path');
+        $target_dir = trim((string)get_config('local_versionamiento_de_aulas', 'repository_path'));
+        $use_repository_path = (bool)get_config('local_versionamiento_de_aulas', 'use_repository_path');
 
         if (empty($tareas)) {
             if ($manual) $this->web_log("No hay respaldos pendientes.", 100);
@@ -70,8 +71,8 @@ class generar_respaldos_task extends \core\task\scheduled_task {
                 $results = $bc->get_results();
                 if (isset($results['backup_destination'])) {
                     $file = $results['backup_destination'];
-                    if (!is_dir($target_dir)) { @mkdir($target_dir, 0777, true); }
 
+                    $workdir = make_request_directory('local_versionamiento_de_aulas');
                     $clean_name = clean_filename($shortname);
                     $new_filename = "Respaldo_{$clean_name}_ID{$t->courseid}_T{$t->id}_" . date('Ymd_His') . ".mbz";
                     $mbzpath = $target_dir . $new_filename;
