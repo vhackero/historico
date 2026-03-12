@@ -40,6 +40,7 @@ if ($hassiteconfig) {
     $settings_tecnico->add(new admin_setting_heading('header_tecnico', 'Configuración Técnica', ''));
     $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/cron_eliminar_mbz_fecha', 'Fecha para eliminar archivos .mbz', '', '', PARAM_TEXT));
     $settings_tecnico->add(new admin_setting_configcheckbox('local_versionamiento_de_aulas/use_repository_path', 'Guardar respaldos en repositorio externo', 'Si se habilita, se guardará también una copia comprimida (.zst) en la ruta del repositorio.', 0));
+    $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/repository_host', 'Host/IP del repositorio remoto', 'Nombre DNS o dirección IP del host remoto donde reside el repositorio.', '', PARAM_HOST));
     $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/repository_path', 'Ruta del repositorio', '', '/www/backups/', PARAM_TEXT));
     $settings_tecnico->add(new admin_setting_configduration('local_versionamiento_de_aulas/retention_days', 'Días de disponibilidad del respaldo', '', 60 * 60 * 24 * 30));
 

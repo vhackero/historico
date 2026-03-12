@@ -8,3 +8,6 @@ $string['my_backups'] = 'Mis Respaldos Listos';
 $string['messageprovider:backup_completed'] = 'Notificación de respaldo de aula completado';
 $string['errorzstdcompression'] = 'Error al comprimir el respaldo MBZ con Zstandard.';
 $string['errorzstddecompression'] = 'Error al descomprimir el respaldo Zstandard para restauración.';
+$string['invalidrepositorypath'] = 'La ruta del repositorio externo no es válida o no tiene permisos de escritura: {$a}';
+$string['errorrepositorycopy'] = 'No se pudo copiar el respaldo comprimido al repositorio externo: {$a}';
+$string['invalidrepositoryhost'] = 'Debes configurar el host/IP del repositorio remoto para habilitar la copia externa.';
