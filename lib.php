@@ -43,3 +43,245 @@ function local_versionamiento_de_aulas_pluginfile($course, $cm, $context, $filea
     if (!$file) return false;
     send_stored_file($file, 0, 0, true, $options);
 }
+
+/**
+ * Determina si un nombre de archivo corresponde a un respaldo comprimido con Zstandard.
+ *
+ * @param string $filename
+ * @return bool
+ */
+function local_versionamiento_de_aulas_is_zst_filename(string $filename): bool {
+    return (strtolower(pathinfo($filename, PATHINFO_EXTENSION)) === 'zst');
+}
+
+/**
+ * Comprime un respaldo MBZ con /bin/zstd a nivel 20 y multihilo automático.
+ *
+ * @param string $mbzpath Ruta absoluta al archivo .mbz.
+ * @return string Ruta absoluta del archivo .zst generado.
+ * @throws moodle_exception Si falla la compresión.
+ */
+function local_versionamiento_de_aulas_compress_mbz_to_zst(string $mbzpath): string {
+    if (!is_file($mbzpath)) {
+        throw new moodle_exception('invalidparameter', 'error', '', 'Archivo MBZ no encontrado para compresión.');
+    }
+
+    $zstpath = $mbzpath . '.zst';
+    $command = '/bin/zstd -20 -T0 --force --keep ' . escapeshellarg($mbzpath) . ' 2>&1';
+    exec($command, $output, $returncode);
+
+    if ($returncode !== 0 || !is_file($zstpath)) {
+        throw new moodle_exception('errorzstdcompression', 'local_versionamiento_de_aulas', '', implode("\n", $output));
+    }
+
+    return $zstpath;
+}
+
+/**
+ * Devuelve el archivo de respaldo listo para extraer (MBZ), descomprimiendo ZST si corresponde.
+ *
+ * @param string $archivepath Ruta absoluta del archivo fuente (.mbz o .zst).
+ * @return string Ruta absoluta del archivo .mbz listo para restaurar.
+ * @throws moodle_exception Si falla la descompresión.
+ */
+function local_versionamiento_de_aulas_prepare_backup_archive(string $archivepath): string {
+    if (!is_file($archivepath)) {
+        throw new moodle_exception('invalidparameter', 'error', '', 'Archivo de respaldo no encontrado.');
+    }
+
+    if (!local_versionamiento_de_aulas_is_zst_filename($archivepath)) {
+        return $archivepath;
+    }
+
+    $mbzpath = preg_replace('/\.zst$/i', '', $archivepath);
+    if (empty($mbzpath)) {
+        throw new moodle_exception('errorzstddecompression', 'local_versionamiento_de_aulas');
+    }
+
+    $command = '/bin/zstd -d --force -o ' . escapeshellarg($mbzpath) . ' ' . escapeshellarg($archivepath) . ' 2>&1';
+    exec($command, $output, $returncode);
+
+    if ($returncode !== 0 || !is_file($mbzpath)) {
+        throw new moodle_exception('errorzstddecompression', 'local_versionamiento_de_aulas', '', implode("\n", $output));
+    }
+
+    return $mbzpath;
+}
+
+
+/**
+ * Busca la ruta de un binario del sistema.
+ *
+ * @param array $candidates
+ * @return string
+ * @throws moodle_exception
+ */
+function local_versionamiento_de_aulas_find_system_binary(array $candidates): string {
+    foreach ($candidates as $candidate) {
+        if (!empty($candidate) && is_executable($candidate)) {
+            return $candidate;
+        }
+    }
+
+    foreach ($candidates as $candidate) {
+        if (empty($candidate)) {
+            continue;
+        }
+        $name = basename($candidate);
+        $resolved = trim((string)shell_exec('command -v ' . escapeshellarg($name) . ' 2>/dev/null'));
+        if (!empty($resolved) && is_executable($resolved)) {
+            return $resolved;
+        }
+    }
+
+    throw new moodle_exception('errorrepositorytransport', 'local_versionamiento_de_aulas', '', implode(', ', $candidates));
+}
+
+/**
+ * Copia un respaldo .zst al repositorio configurado (local o remoto por SSH/SCP).
+ *
+ * @param string $zstpath Ruta local absoluta del archivo .zst.
+ * @throws moodle_exception Si falla la conexión/copia al repositorio.
+ */
+function local_versionamiento_de_aulas_copy_to_repository(string $zstpath): void {
+    if (!is_file($zstpath)) {
+        throw new moodle_exception('invalidparameter', 'error', '', 'Archivo ZST no encontrado para copiar al repositorio.');
+    }
+
+    $host = trim((string)get_config('local_versionamiento_de_aulas', 'repository_host'));
+    $targetdir = trim((string)get_config('local_versionamiento_de_aulas', 'repository_path'));
+    $username = trim((string)get_config('local_versionamiento_de_aulas', 'repository_user'));
+    $port = (int)get_config('local_versionamiento_de_aulas', 'repository_port');
+    $authmethod = trim((string)get_config('local_versionamiento_de_aulas', 'repository_auth_method')) ?: 'password';
+    $password = (string)get_config('local_versionamiento_de_aulas', 'repository_password');
+    $privatekey = trim((string)get_config('local_versionamiento_de_aulas', 'repository_private_key'));
+
+    if (empty($host)) {
+        throw new moodle_exception('invalidrepositoryhost', 'local_versionamiento_de_aulas');
+    }
+    if (empty($targetdir)) {
+        throw new moodle_exception('invalidrepositorypath', 'local_versionamiento_de_aulas');
+    }
+    if ($port <= 0) {
+        $port = 22;
+    }
+
+    if (!in_array($authmethod, ['password', 'key'], true)) {
+        $authmethod = 'password';
+    }
+
+    $localhosts = ['localhost', '127.0.0.1', '::1'];
+    $islocal = in_array(strtolower($host), $localhosts, true);
+
+    if (!$islocal && empty($username)) {
+        throw new moodle_exception('invalidrepositoryuser', 'local_versionamiento_de_aulas');
+    }
+
+    if ($islocal) {
+        if (substr($targetdir, -1) !== '/' && substr($targetdir, -1) !== DIRECTORY_SEPARATOR) {
+            $targetdir .= DIRECTORY_SEPARATOR;
+        }
+        if (!is_dir($targetdir) && !mkdir($targetdir, 0770, true)) {
+            throw new moodle_exception('invalidrepositorypath', 'local_versionamiento_de_aulas', '', $targetdir);
+        }
+        if (!is_writable($targetdir)) {
+            throw new moodle_exception('invalidrepositorypath', 'local_versionamiento_de_aulas', '', $targetdir);
+        }
+        $destination = $targetdir . basename($zstpath);
+        if (!copy($zstpath, $destination)) {
+            throw new moodle_exception('errorrepositorycopy', 'local_versionamiento_de_aulas', '', $destination);
+        }
+        return;
+    }
+
+    $sshbin = local_versionamiento_de_aulas_find_system_binary(['/usr/bin/ssh', '/bin/ssh']);
+    $scpbin = local_versionamiento_de_aulas_find_system_binary(['/usr/bin/scp', '/bin/scp']);
+
+    $sshauthopts = '';
+    $scpauthopts = '';
+    $usepass = false;
+
+    if ($authmethod === 'key') {
+        if (empty($privatekey) || !is_readable($privatekey)) {
+            throw new moodle_exception('invalidrepositorykey', 'local_versionamiento_de_aulas', '', $privatekey);
+        }
+        $keyopt = '-i ' . escapeshellarg($privatekey);
+        $sshauthopts = $keyopt;
+        $scpauthopts = $keyopt;
+    } else {
+        if (empty($password)) {
+            throw new moodle_exception('invalidrepositorypassword', 'local_versionamiento_de_aulas');
+        }
+        $sshpassbin = local_versionamiento_de_aulas_find_system_binary(['/usr/bin/sshpass', '/bin/sshpass']);
+        putenv('SSHPASS=' . $password);
+        $usepass = true;
+    }
+
+    $usertarget = escapeshellarg($username . '@' . $host);
+    $remotecommand = 'mkdir -p ' . escapeshellarg($targetdir);
+
+    $mkdircmd = ($usepass ? ($sshpassbin . ' -e ') : '') .
+        $sshbin . ' ' . $sshauthopts .
+        ' -p ' . (int)$port .
+        ' -o ConnectTimeout=15 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ' .
+        $usertarget . ' ' . escapeshellarg($remotecommand) . ' 2>&1';
+
+    exec($mkdircmd, $mkdirout, $mkdircode);
+    if ($mkdircode !== 0) {
+        if ($usepass) {
+            putenv('SSHPASS');
+        }
+        throw new moodle_exception('errorrepositoryconnect', 'local_versionamiento_de_aulas', '', implode("\n", $mkdirout));
+    }
+
+    $remote = escapeshellarg($username . '@' . $host . ':' . rtrim($targetdir, '/'). '/');
+    $scpcmd = ($usepass ? ($sshpassbin . ' -e ') : '') .
+        $scpbin . ' ' . $scpauthopts .
+        ' -P ' . (int)$port .
+        ' -o ConnectTimeout=15 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ' .
+        escapeshellarg($zstpath) . ' ' . $remote . ' 2>&1';
+
+    exec($scpcmd, $scout, $sccode);
+    if ($usepass) {
+        putenv('SSHPASS');
+    }
+
+    if ($sccode !== 0) {
+        throw new moodle_exception('errorrepositorycopy', 'local_versionamiento_de_aulas', '', implode("\n", $scout));
+    }
+}
+
+
+/**
+ * Copia un respaldo .zst a la ruta local configurada.
+ *
+ * @param string $zstpath Ruta local absoluta del archivo .zst.
+ * @throws moodle_exception Si falla la copia local.
+ */
+function local_versionamiento_de_aulas_copy_to_local_repository(string $zstpath): void {
+    if (!is_file($zstpath)) {
+        throw new moodle_exception('invalidparameter', 'error', '', 'Archivo ZST no encontrado para copiar al repositorio local.');
+    }
+
+    $localpath = trim((string)get_config('local_versionamiento_de_aulas', 'local_repository_path'));
+    if (empty($localpath)) {
+        throw new moodle_exception('invalidlocalrepositorypath', 'local_versionamiento_de_aulas');
+    }
+
+    if (substr($localpath, -1) !== '/' && substr($localpath, -1) !== DIRECTORY_SEPARATOR) {
+        $localpath .= DIRECTORY_SEPARATOR;
+    }
+
+    if (!is_dir($localpath) && !mkdir($localpath, 0770, true)) {
+        throw new moodle_exception('invalidlocalrepositorypath', 'local_versionamiento_de_aulas', '', $localpath);
+    }
+
+    if (!is_writable($localpath)) {
+        throw new moodle_exception('invalidlocalrepositorypath', 'local_versionamiento_de_aulas', '', $localpath);
+    }
+
+    $destination = $localpath . basename($zstpath);
+    if (!copy($zstpath, $destination)) {
+        throw new moodle_exception('errorlocalrepositorycopy', 'local_versionamiento_de_aulas', '', $destination);
+    }
+}
