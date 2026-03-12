@@ -79,7 +79,6 @@ class generar_respaldos_task extends \core\task\scheduled_task {
 
                     $zstpath = local_versionamiento_de_aulas_compress_mbz_to_zst($mbzpath);
                     $zstfilename = basename($zstpath);
-
                     if ($use_repository_path) {
                         local_versionamiento_de_aulas_copy_to_repository($zstpath);
                     } else {
@@ -105,15 +104,33 @@ class generar_respaldos_task extends \core\task\scheduled_task {
                         'timemodified' => time()
                     ]);
 
+
                     if ($manual) $this->web_log("Completado: {$shortname}", $p);
                 }
                 $bc->destroy();
             } catch (\Exception $e) {
                 $DB->set_field('local_ver_aulas_cola', 'status', 'error', ['id' => $t->id]);
+                $this->log_event($t->userid, $t->courseid, 'respaldo_error', $e->getMessage());
                 if ($manual) $this->web_log("ERROR en {$shortname}: " . $e->getMessage(), $p);
             }
         }
         if ($manual) $this->web_log("Proceso terminado.", 100);
+    }
+
+    private function log_event($userid, $courseid, $action, $info) {
+        global $DB;
+
+        try {
+            $DB->insert_record('local_ver_aulas_logs', (object)[
+                'userid' => (int)$userid,
+                'courseid' => (int)$courseid,
+                'action' => $action,
+                'info' => $info,
+                'timecreated' => time(),
+            ]);
+        } catch (\Exception $ignored) {
+            // Evitamos romper el flujo principal por fallos de auditoría.
+        }
     }
 
     private function web_log($m, $p) {

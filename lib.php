@@ -110,6 +110,34 @@ function local_versionamiento_de_aulas_prepare_backup_archive(string $archivepat
 
 
 /**
+ * Busca la ruta de un binario del sistema.
+ *
+ * @param array $candidates
+ * @return string
+ * @throws moodle_exception
+ */
+function local_versionamiento_de_aulas_find_system_binary(array $candidates): string {
+    foreach ($candidates as $candidate) {
+        if (!empty($candidate) && is_executable($candidate)) {
+            return $candidate;
+        }
+    }
+
+    foreach ($candidates as $candidate) {
+        if (empty($candidate)) {
+            continue;
+        }
+        $name = basename($candidate);
+        $resolved = trim((string)shell_exec('command -v ' . escapeshellarg($name) . ' 2>/dev/null'));
+        if (!empty($resolved) && is_executable($resolved)) {
+            return $resolved;
+        }
+    }
+
+    throw new moodle_exception('errorrepositorytransport', 'local_versionamiento_de_aulas', '', implode(', ', $candidates));
+}
+
+/**
  * Copia un respaldo .zst al repositorio configurado (local o remoto por SSH/SCP).
  *
  * @param string $zstpath Ruta local absoluta del archivo .zst.
@@ -166,11 +194,8 @@ function local_versionamiento_de_aulas_copy_to_repository(string $zstpath): void
         return;
     }
 
-    $sshbin = '/usr/bin/ssh';
-    $scpbin = '/usr/bin/scp';
-    if (!is_executable($sshbin) || !is_executable($scpbin)) {
-        throw new moodle_exception('errorrepositorytransport', 'local_versionamiento_de_aulas', '', 'ssh/scp');
-    }
+    $sshbin = local_versionamiento_de_aulas_find_system_binary(['/usr/bin/ssh', '/bin/ssh']);
+    $scpbin = local_versionamiento_de_aulas_find_system_binary(['/usr/bin/scp', '/bin/scp']);
 
     $sshauthopts = '';
     $scpauthopts = '';
@@ -187,9 +212,7 @@ function local_versionamiento_de_aulas_copy_to_repository(string $zstpath): void
         if (empty($password)) {
             throw new moodle_exception('invalidrepositorypassword', 'local_versionamiento_de_aulas');
         }
-        if (!is_executable('/usr/bin/sshpass')) {
-            throw new moodle_exception('errorrepositorytransport', 'local_versionamiento_de_aulas', '', 'sshpass');
-        }
+        $sshpassbin = local_versionamiento_de_aulas_find_system_binary(['/usr/bin/sshpass', '/bin/sshpass']);
         putenv('SSHPASS=' . $password);
         $usepass = true;
     }
@@ -197,10 +220,10 @@ function local_versionamiento_de_aulas_copy_to_repository(string $zstpath): void
     $usertarget = escapeshellarg($username . '@' . $host);
     $remotecommand = 'mkdir -p ' . escapeshellarg($targetdir);
 
-    $mkdircmd = ($usepass ? '/usr/bin/sshpass -e ' : '') .
+    $mkdircmd = ($usepass ? ($sshpassbin . ' -e ') : '') .
         $sshbin . ' ' . $sshauthopts .
         ' -p ' . (int)$port .
-        ' -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ' .
+        ' -o ConnectTimeout=15 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ' .
         $usertarget . ' ' . escapeshellarg($remotecommand) . ' 2>&1';
 
     exec($mkdircmd, $mkdirout, $mkdircode);
@@ -212,10 +235,10 @@ function local_versionamiento_de_aulas_copy_to_repository(string $zstpath): void
     }
 
     $remote = escapeshellarg($username . '@' . $host . ':' . rtrim($targetdir, '/'). '/');
-    $scpcmd = ($usepass ? '/usr/bin/sshpass -e ' : '') .
+    $scpcmd = ($usepass ? ($sshpassbin . ' -e ') : '') .
         $scpbin . ' ' . $scpauthopts .
         ' -P ' . (int)$port .
-        ' -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ' .
+        ' -o ConnectTimeout=15 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ' .
         escapeshellarg($zstpath) . ' ' . $remote . ' 2>&1';
 
     exec($scpcmd, $scout, $sccode);
