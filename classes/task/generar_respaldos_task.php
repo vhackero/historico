@@ -5,6 +5,7 @@ defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
 require_once($CFG->dirroot . '/backup/util/includes/backup_includes.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/lib.php');
 
 class generar_respaldos_task extends \core\task\scheduled_task {
     public function get_name() { return "Procesar cola de respaldos de aulas"; }
@@ -41,7 +42,9 @@ class generar_respaldos_task extends \core\task\scheduled_task {
         $total = count($tareas);
         $count = 0;
         $admin = get_admin();
-        $target_dir = get_config('local_versionamiento_de_aulas', 'repository_path');
+        $target_dir = trim((string)get_config('local_versionamiento_de_aulas', 'repository_path'));
+        $repository_host = trim((string)get_config('local_versionamiento_de_aulas', 'repository_host'));
+        $use_repository_path = (bool)get_config('local_versionamiento_de_aulas', 'use_repository_path');
 
         if (empty($tareas)) {
             if ($manual) $this->web_log("No hay respaldos pendientes.", 100);
@@ -69,11 +72,42 @@ class generar_respaldos_task extends \core\task\scheduled_task {
                 $results = $bc->get_results();
                 if (isset($results['backup_destination'])) {
                     $file = $results['backup_destination'];
-                    if (!is_dir($target_dir)) { @mkdir($target_dir, 0777, true); }
 
+                    $workdir = make_request_directory('local_versionamiento_de_aulas');
                     $clean_name = clean_filename($shortname);
                     $new_filename = "Respaldo_{$clean_name}_ID{$t->courseid}_T{$t->id}_" . date('Ymd_His') . ".mbz";
-                    $file->copy_content_to($target_dir . $new_filename);
+                    $mbzpath = $workdir . '/' . $new_filename;
+                    $file->copy_content_to($mbzpath);
+
+                    $zstpath = local_versionamiento_de_aulas_compress_mbz_to_zst($mbzpath);
+                    $zstfilename = basename($zstpath);
+
+                    if ($use_repository_path) {
+                        if (empty($repository_host)) {
+                            throw new \moodle_exception('invalidrepositoryhost', 'local_versionamiento_de_aulas');
+                        }
+
+                        if (empty($target_dir)) {
+                            throw new \moodle_exception('invalidrepositorypath', 'local_versionamiento_de_aulas');
+                        }
+
+                        if (substr($target_dir, -1) !== '/' && substr($target_dir, -1) !== DIRECTORY_SEPARATOR) {
+                            $target_dir .= DIRECTORY_SEPARATOR;
+                        }
+
+                        if (!is_dir($target_dir) && !mkdir($target_dir, 0770, true)) {
+                            throw new \moodle_exception('invalidrepositorypath', 'local_versionamiento_de_aulas', '', $target_dir);
+                        }
+
+                        if (!is_writable($target_dir)) {
+                            throw new \moodle_exception('invalidrepositorypath', 'local_versionamiento_de_aulas', '', $target_dir);
+                        }
+
+                        $external_zstpath = $target_dir . $zstfilename;
+                        if (!copy($zstpath, $external_zstpath)) {
+                            throw new \moodle_exception('errorrepositorycopy', 'local_versionamiento_de_aulas', '', $external_zstpath);
+                        }
+                    }
 
                     $fs = get_file_storage();
                     $file_record = [
@@ -82,10 +116,10 @@ class generar_respaldos_task extends \core\task\scheduled_task {
                         'filearea' => 'backup',
                         'itemid' => $t->id,
                         'filepath' => '/',
-                        'filename' => $new_filename,
+                        'filename' => $zstfilename,
                         'userid' => $t->userid,
                     ];
-                    $stored_file = $fs->create_file_from_storedfile($file_record, $file);
+                    $stored_file = $fs->create_file_from_pathname($file_record, $zstpath);
 
                     $DB->update_record('local_ver_aulas_cola', (object)[
                         'id' => $t->id,
