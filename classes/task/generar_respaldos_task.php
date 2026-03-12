@@ -75,34 +75,11 @@ class generar_respaldos_task extends \core\task\scheduled_task {
                     $workdir = make_request_directory('local_versionamiento_de_aulas');
                     $clean_name = clean_filename($shortname);
                     $new_filename = "Respaldo_{$clean_name}_ID{$t->courseid}_T{$t->id}_" . date('Ymd_His') . ".mbz";
-                    $mbzpath = $workdir . '/' . $new_filename;
+                    $mbzpath = $target_dir . $new_filename;
                     $file->copy_content_to($mbzpath);
 
                     $zstpath = local_versionamiento_de_aulas_compress_mbz_to_zst($mbzpath);
                     $zstfilename = basename($zstpath);
-
-                    if ($use_repository_path) {
-                        if (empty($target_dir)) {
-                            throw new \moodle_exception('invalidrepositorypath', 'local_versionamiento_de_aulas');
-                        }
-
-                        if (substr($target_dir, -1) !== '/' && substr($target_dir, -1) !== DIRECTORY_SEPARATOR) {
-                            $target_dir .= DIRECTORY_SEPARATOR;
-                        }
-
-                        if (!is_dir($target_dir) && !mkdir($target_dir, 0770, true)) {
-                            throw new \moodle_exception('invalidrepositorypath', 'local_versionamiento_de_aulas', '', $target_dir);
-                        }
-
-                        if (!is_writable($target_dir)) {
-                            throw new \moodle_exception('invalidrepositorypath', 'local_versionamiento_de_aulas', '', $target_dir);
-                        }
-
-                        $external_zstpath = $target_dir . $zstfilename;
-                        if (!copy($zstpath, $external_zstpath)) {
-                            throw new \moodle_exception('errorrepositorycopy', 'local_versionamiento_de_aulas', '', $external_zstpath);
-                        }
-                    }
 
                     $fs = get_file_storage();
                     $file_record = [
