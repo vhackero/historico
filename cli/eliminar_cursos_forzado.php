@@ -53,7 +53,10 @@ if (empty($courses_to_delete)) {
 
 echo "🔍 Encontrados " . count($courses_to_delete) . " cursos para purgar.\n\n";
 
-$target_dir = get_config('local_versionamiento_de_aulas', 'repository_path');
+$target_dir = get_config('local_versionamiento_de_aulas', 'local_repository_path');
+if (empty($target_dir)) {
+    $target_dir = get_config('local_versionamiento_de_aulas', 'repository_path');
+}
 
 foreach ($courses_to_delete as $course) {
     if ($course->id == SITEID) continue;

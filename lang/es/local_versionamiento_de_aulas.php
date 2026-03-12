@@ -16,3 +16,5 @@ $string['invalidrepositorypassword'] = 'Debes configurar la contraseña del usua
 $string['invalidrepositorykey'] = 'La ruta de la llave privada SSH no es válida o no se puede leer: {$a}';
 $string['errorrepositorytransport'] = 'No se encontró la herramienta requerida para transporte remoto: {$a}';
 $string['errorrepositoryconnect'] = 'No se pudo establecer conexión con el host remoto del repositorio: {$a}';
+$string['invalidlocalrepositorypath'] = 'La ruta local de respaldos no es válida o no tiene permisos de escritura: {$a}';
+$string['errorlocalrepositorycopy'] = 'No se pudo copiar el respaldo comprimido al repositorio local: {$a}';

@@ -227,3 +227,38 @@ function local_versionamiento_de_aulas_copy_to_repository(string $zstpath): void
         throw new moodle_exception('errorrepositorycopy', 'local_versionamiento_de_aulas', '', implode("\n", $scout));
     }
 }
+
+
+/**
+ * Copia un respaldo .zst a la ruta local configurada.
+ *
+ * @param string $zstpath Ruta local absoluta del archivo .zst.
+ * @throws moodle_exception Si falla la copia local.
+ */
+function local_versionamiento_de_aulas_copy_to_local_repository(string $zstpath): void {
+    if (!is_file($zstpath)) {
+        throw new moodle_exception('invalidparameter', 'error', '', 'Archivo ZST no encontrado para copiar al repositorio local.');
+    }
+
+    $localpath = trim((string)get_config('local_versionamiento_de_aulas', 'local_repository_path'));
+    if (empty($localpath)) {
+        throw new moodle_exception('invalidlocalrepositorypath', 'local_versionamiento_de_aulas');
+    }
+
+    if (substr($localpath, -1) !== '/' && substr($localpath, -1) !== DIRECTORY_SEPARATOR) {
+        $localpath .= DIRECTORY_SEPARATOR;
+    }
+
+    if (!is_dir($localpath) && !mkdir($localpath, 0770, true)) {
+        throw new moodle_exception('invalidlocalrepositorypath', 'local_versionamiento_de_aulas', '', $localpath);
+    }
+
+    if (!is_writable($localpath)) {
+        throw new moodle_exception('invalidlocalrepositorypath', 'local_versionamiento_de_aulas', '', $localpath);
+    }
+
+    $destination = $localpath . basename($zstpath);
+    if (!copy($zstpath, $destination)) {
+        throw new moodle_exception('errorlocalrepositorycopy', 'local_versionamiento_de_aulas', '', $destination);
+    }
+}

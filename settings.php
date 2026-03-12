@@ -39,6 +39,7 @@ if ($hassiteconfig) {
     // Campos originales de limpieza y repositorio
     $settings_tecnico->add(new admin_setting_heading('header_tecnico', 'Configuración Técnica', ''));
     $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/cron_eliminar_mbz_fecha', 'Fecha para eliminar archivos .mbz', '', '', PARAM_TEXT));
+    $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/local_repository_path', 'Ruta local de respaldos', 'Ruta local en el servidor Moodle donde se almacenarán los respaldos .zst cuando NO se use repositorio remoto.', '/www/backups/', PARAM_TEXT));
     $settings_tecnico->add(new admin_setting_configcheckbox('local_versionamiento_de_aulas/use_repository_path', 'Guardar respaldos en repositorio externo', 'Si se habilita, se guardará también una copia comprimida (.zst) en la ruta del repositorio.', 0));
     $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/repository_host', 'Host/IP del repositorio remoto', 'Nombre DNS o dirección IP del host remoto donde reside el repositorio.', '', PARAM_HOST));
     $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/repository_port', 'Puerto SSH del repositorio remoto', 'Puerto para conexión SSH/SCP al host remoto.', '22', PARAM_INT));

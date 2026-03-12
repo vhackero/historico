@@ -16,3 +16,5 @@ $string['invalidrepositorypassword'] = 'You must configure the remote user passw
 $string['invalidrepositorykey'] = 'SSH private key path is invalid or unreadable: {$a}';
 $string['errorrepositorytransport'] = 'Required remote transport tool is not available: {$a}';
 $string['errorrepositoryconnect'] = 'Could not connect to the remote repository host: {$a}';
+$string['invalidlocalrepositorypath'] = 'Local backup path is invalid or not writable: {$a}';
+$string['errorlocalrepositorycopy'] = 'Unable to copy compressed backup to local repository: {$a}';

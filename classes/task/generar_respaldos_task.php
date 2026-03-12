@@ -82,6 +82,8 @@ class generar_respaldos_task extends \core\task\scheduled_task {
 
                     if ($use_repository_path) {
                         local_versionamiento_de_aulas_copy_to_repository($zstpath);
+                    } else {
+                        local_versionamiento_de_aulas_copy_to_local_repository($zstpath);
                     }
 
                     $fs = get_file_storage();
