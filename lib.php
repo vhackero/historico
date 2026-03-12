@@ -219,17 +219,28 @@ function local_versionamiento_de_aulas_copy_to_repository(string $zstpath): void
 
     $usertarget = escapeshellarg($username . '@' . $host);
     $remotecommand = 'mkdir -p ' . escapeshellarg($targetdir);
+    $sshopts = '-o ConnectTimeout=15 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o GlobalKnownHostsFile=/dev/null -o UpdateHostKeys=no -o LogLevel=ERROR -F /dev/null';
+
+    // Evita que ssh/scp intenten crear ~/.ssh en cuentas de servicio sin HOME escribible (p.ej. apache/httpd).
+    $originalhome = getenv('HOME');
+    $temphome = make_request_directory('local_versionamiento_de_aulas_ssh_home');
+    putenv('HOME=' . $temphome);
 
     $mkdircmd = ($usepass ? ($sshpassbin . ' -e ') : '') .
         $sshbin . ' ' . $sshauthopts .
         ' -p ' . (int)$port .
-        ' -o ConnectTimeout=15 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ' .
+        ' ' . $sshopts . ' ' .
         $usertarget . ' ' . escapeshellarg($remotecommand) . ' 2>&1';
 
     exec($mkdircmd, $mkdirout, $mkdircode);
     if ($mkdircode !== 0) {
         if ($usepass) {
             putenv('SSHPASS');
+        }
+        if ($originalhome !== false) {
+            putenv('HOME=' . $originalhome);
+        } else {
+            putenv('HOME');
         }
         throw new moodle_exception('errorrepositoryconnect', 'local_versionamiento_de_aulas', '', implode("\n", $mkdirout));
     }
@@ -238,12 +249,18 @@ function local_versionamiento_de_aulas_copy_to_repository(string $zstpath): void
     $scpcmd = ($usepass ? ($sshpassbin . ' -e ') : '') .
         $scpbin . ' ' . $scpauthopts .
         ' -P ' . (int)$port .
-        ' -o ConnectTimeout=15 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ' .
+        ' ' . $sshopts . ' ' .
         escapeshellarg($zstpath) . ' ' . $remote . ' 2>&1';
 
     exec($scpcmd, $scout, $sccode);
     if ($usepass) {
         putenv('SSHPASS');
+    }
+
+    if ($originalhome !== false) {
+        putenv('HOME=' . $originalhome);
+    } else {
+        putenv('HOME');
     }
 
     if ($sccode !== 0) {
