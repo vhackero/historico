@@ -18,3 +18,7 @@ $string['errorrepositorytransport'] = 'Required remote transport tool is not ava
 $string['errorrepositoryconnect'] = 'Could not connect to the remote repository host: {$a}';
 $string['invalidlocalrepositorypath'] = 'Local backup path is invalid or not writable: {$a}';
 $string['errorlocalrepositorycopy'] = 'Unable to copy compressed backup to local repository: {$a}';
+$string['eventbackuprequested'] = 'Backup requested';
+$string['eventbackupdeleted'] = 'Backup deleted';
+$string['eventcoursemerged'] = 'Course merged';
+$string['eventbackupgenerated'] = 'Backup generated';

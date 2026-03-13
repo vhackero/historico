@@ -104,6 +104,15 @@ class generar_respaldos_task extends \core\task\scheduled_task {
                         'timemodified' => time()
                     ]);
 
+                    $eventcontext = \context_course::instance($t->courseid, IGNORE_MISSING);
+                    if ($eventcontext) {
+                        \local_versionamiento_de_aulas\event\backup_generated::create([
+                            'objectid' => $t->id,
+                            'context' => $eventcontext,
+                            'courseid' => $t->courseid,
+                            'userid' => $t->userid,
+                        ])->trigger();
+                    }
 
                     if ($manual) $this->web_log("Completado: {$shortname}", $p);
                 }

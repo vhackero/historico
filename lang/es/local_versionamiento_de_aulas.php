@@ -18,3 +18,7 @@ $string['errorrepositorytransport'] = 'No se encontró la herramienta requerida 
 $string['errorrepositoryconnect'] = 'No se pudo establecer conexión con el host remoto del repositorio: {$a}';
 $string['invalidlocalrepositorypath'] = 'La ruta local de respaldos no es válida o no tiene permisos de escritura: {$a}';
 $string['errorlocalrepositorycopy'] = 'No se pudo copiar el respaldo comprimido al repositorio local: {$a}';
+$string['eventbackuprequested'] = 'Respaldo solicitado';
+$string['eventbackupdeleted'] = 'Respaldo eliminado';
+$string['eventcoursemerged'] = 'Aula fusionada';
+$string['eventbackupgenerated'] = 'Respaldo generado';

@@ -54,12 +54,20 @@ $respaldo_actual = $DB->get_record('local_ver_aulas_cola', [
 ]);
 
 if (optional_param('solicitar', 0, PARAM_INT) && $puede_respaldar && !$respaldo_actual) {
-    $DB->insert_record('local_ver_aulas_cola', [
+    $requestid = $DB->insert_record('local_ver_aulas_cola', [
         'userid'      => $USER->id,
         'courseid'    => $courseid,
         'status'      => 'pendiente',
         'timecreated' => time()
     ]);
+
+    \local_versionamiento_de_aulas\event\backup_requested::create([
+        'objectid' => $requestid,
+        'context' => $context,
+        'courseid' => $courseid,
+        'userid' => $USER->id,
+    ])->trigger();
+
     redirect($PAGE->url, "Solicitud registrada.", 1);
 }
 
@@ -79,10 +87,18 @@ if (optional_param('eliminar', 0, PARAM_INT) && $respaldo_actual) {
     $fs->delete_area_files($context->id, 'local_versionamiento_de_aulas', 'backup', $respaldo_actual->id);
 
     // 3. Borrado de la base de datos (Estricto: id + userid)
+    $deletedid = $respaldo_actual->id;
     $DB->delete_records('local_ver_aulas_cola', [
-        'id'     => $respaldo_actual->id,
+        'id'     => $deletedid,
         'userid' => $USER->id
     ]);
+
+    \local_versionamiento_de_aulas\event\backup_deleted::create([
+        'objectid' => $deletedid,
+        'context' => $context,
+        'courseid' => $courseid,
+        'userid' => $USER->id,
+    ])->trigger();
 
     redirect($PAGE->url, "Registro eliminado.", 1);
 }
@@ -110,6 +126,13 @@ if ($file_id && $confirm && $puede_restaurar) {
         $rc = new \restore_controller($folder, $courseid, \backup::INTERACTIVE_NO, \backup::MODE_GENERAL, $admin_user->id, \backup::TARGET_EXISTING_ADDING);
         if ($rc->execute_precheck()) { $rc->execute_plan(); }
         $rc->destroy();
+
+        \local_versionamiento_de_aulas\event\course_merged::create([
+            'objectid' => $courseid,
+            'context' => $context,
+            'courseid' => $courseid,
+            'userid' => $original_user->id,
+        ])->trigger();
         \core\session\manager::set_user($original_user);
         echo $OUTPUT->notification('Contenido fusionado con éxito.', 'notifysuccess');
         echo "<div class='text-center mt-3'><a href='{$CFG->wwwroot}/course/view.php?id={$courseid}' class='btn btn-success rounded-pill'>Volver al Curso</a></div>";

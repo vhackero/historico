@@ -67,6 +67,15 @@ if ($action === 'delete' && $id_reg) {
             'timecreated' => time()
         ]);
         $DB->delete_records('local_ver_aulas_cola', ['id' => $id_reg]);
+
+        $eventcontext = \context_course::instance($registro->courseid, IGNORE_MISSING) ?: \context_system::instance();
+        \local_versionamiento_de_aulas\event\backup_deleted::create([
+            'objectid' => $id_reg,
+            'context' => $eventcontext,
+            'courseid' => $registro->courseid,
+            'userid' => $USER->id,
+        ])->trigger();
+
         redirect(new moodle_url('/local/versionamiento_de_aulas/admin_tasks.php'), "Registro eliminado", 1);
     }
 }
