@@ -69,6 +69,8 @@ if (optional_param('eliminar', 0, PARAM_INT) && $respaldo_actual) {
     // 1. Borrado por ID de archivo específico
     if (!empty($respaldo_actual->backupfileid)) {
         if ($file = $fs->get_file_by_id($respaldo_actual->backupfileid)) {
+            $filename = $file->get_filename();
+            local_versionamiento_de_aulas_delete_from_repositories($filename);
             $file->delete();
         }
     }
