@@ -6,6 +6,7 @@ defined('MOODLE_INTERNAL') || die();
 global $CFG;
 require_once($CFG->dirroot . '/backup/util/includes/backup_includes.php');
 require_once($CFG->dirroot . '/local/versionamiento_de_aulas/lib.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_generated.php');
 
 class generar_respaldos_task extends \core\task\scheduled_task {
     public function get_name() { return "Procesar cola de respaldos de aulas"; }

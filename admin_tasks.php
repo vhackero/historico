@@ -7,6 +7,7 @@ require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 require_once($CFG->libdir . '/tablelib.php');
 require_once($CFG->dirroot . '/local/versionamiento_de_aulas/lib.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_deleted.php');
 
 // Configuración de la página en el menú de administración
 admin_externalpage_setup('local_versionamiento_admin');

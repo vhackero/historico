@@ -8,6 +8,9 @@ require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
 require_once($CFG->dirroot . '/local/versionamiento_de_aulas/lib.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/course_merged.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_deleted.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_requested.php');
 
 $courseid = required_param('id', PARAM_INT);
 $course = $DB->get_record('course', array('id' => $courseid), '*', MUST_EXIST);
@@ -127,12 +130,15 @@ if ($file_id && $confirm && $puede_restaurar) {
         if ($rc->execute_precheck()) { $rc->execute_plan(); }
         $rc->destroy();
 
-        \local_versionamiento_de_aulas\event\course_merged::create([
-            'objectid' => $courseid,
-            'context' => $context,
-            'courseid' => $courseid,
-            'userid' => $original_user->id,
-        ])->trigger();
+        $eventclass = '\local_versionamiento_de_aulas\event\course_merged';
+        if (class_exists($eventclass)) {
+            $eventclass::create([
+                'objectid' => $courseid,
+                'context' => $context,
+                'courseid' => $courseid,
+                'userid' => $original_user->id,
+            ])->trigger();
+        }
         \core\session\manager::set_user($original_user);
         echo $OUTPUT->notification('Contenido fusionado con éxito.', 'notifysuccess');
         echo "<div class='text-center mt-3'><a href='{$CFG->wwwroot}/course/view.php?id={$courseid}' class='btn btn-success rounded-pill'>Volver al Curso</a></div>";
