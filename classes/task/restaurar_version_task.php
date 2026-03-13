@@ -6,6 +6,8 @@ defined('MOODLE_INTERNAL') || die();
 global $CFG;
 require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
 require_once($CFG->dirroot . '/local/versionamiento_de_aulas/lib.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_file_retrieved.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_decompressed.php');
 
 class restaurar_version_task {
 
@@ -30,7 +32,26 @@ class restaurar_version_task {
 
             $archivepath = $path . '/' . $file->get_filename();
             $file->copy_content_to($archivepath);
+            $eventcontext = \context_course::instance($courseid, IGNORE_MISSING);
+            if ($eventcontext) {
+                \local_versionamiento_de_aulas\event\backup_file_retrieved::create([
+                    'objectid' => $fileid,
+                    'context' => $eventcontext,
+                    'courseid' => $courseid,
+                    'userid' => $userid,
+                ])->trigger();
+            }
+
+            $waszst = local_versionamiento_de_aulas_is_zst_filename($archivepath);
             $mbzpath = local_versionamiento_de_aulas_prepare_backup_archive($archivepath);
+            if ($waszst && $eventcontext) {
+                \local_versionamiento_de_aulas\event\backup_decompressed::create([
+                    'objectid' => $fileid,
+                    'context' => $eventcontext,
+                    'courseid' => $courseid,
+                    'userid' => $userid,
+                ])->trigger();
+            }
             get_file_packer('application/vnd.moodle.backup')->extract_to_pathname($mbzpath, $path);
 
             $this->log("Archivo extraído. Configurando controlador...", $isweb, 40);

@@ -11,6 +11,8 @@ require_once($CFG->dirroot . '/local/versionamiento_de_aulas/lib.php');
 require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/course_merged.php');
 require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_deleted.php');
 require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_requested.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_file_retrieved.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_decompressed.php');
 
 $courseid = required_param('id', PARAM_INT);
 $course = $DB->get_record('course', array('id' => $courseid), '*', MUST_EXIST);
@@ -124,7 +126,23 @@ if ($file_id && $confirm && $puede_restaurar) {
         check_dir_exists($temp_path, true, true);
         $archive_path = $temp_path . '/' . $file->get_filename();
         $file->copy_content_to($archive_path);
+        \local_versionamiento_de_aulas\event\backup_file_retrieved::create([
+            'objectid' => $file->get_id(),
+            'context' => $context,
+            'courseid' => $courseid,
+            'userid' => $original_user->id,
+        ])->trigger();
+
+        $waszst = local_versionamiento_de_aulas_is_zst_filename($archive_path);
         $mbz_path = local_versionamiento_de_aulas_prepare_backup_archive($archive_path);
+        if ($waszst) {
+            \local_versionamiento_de_aulas\event\backup_decompressed::create([
+                'objectid' => $file->get_id(),
+                'context' => $context,
+                'courseid' => $courseid,
+                'userid' => $original_user->id,
+            ])->trigger();
+        }
         get_file_packer('application/vnd.moodle.backup')->extract_to_pathname($mbz_path, $temp_path);
         $rc = new \restore_controller($folder, $courseid, \backup::INTERACTIVE_NO, \backup::MODE_GENERAL, $admin_user->id, \backup::TARGET_EXISTING_ADDING);
         if ($rc->execute_precheck()) { $rc->execute_plan(); }

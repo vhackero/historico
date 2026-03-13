@@ -6,7 +6,7 @@
                 <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="ID unico"/>
                 <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" COMMENT="ID del docente"/>
                 <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" COMMENT="ID del curso"/>
-                <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="pendiente" COMMENT="Estado: pendiente, procesando, finalizado, error"/>
+                <FIELD NAME="status" TYPE="char" LENGTH="50" NOTNULL="true" DEFAULT="pendiente" COMMENT="Estado: pendiente, procesando, finalizado, error, eliminado_baja_docente"/>
                 <FIELD NAME="backupfileid" TYPE="int" LENGTH="10" NOTNULL="false" COMMENT="Referencia al archivo MBZ en el storage de Moodle"/>
                 <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" COMMENT="Fecha de creacion del registro"/>
                 <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="false" COMMENT="Fecha de última modificación del registro"/>

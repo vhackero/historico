@@ -22,3 +22,7 @@ $string['eventbackuprequested'] = 'Backup requested';
 $string['eventbackupdeleted'] = 'Backup deleted';
 $string['eventcoursemerged'] = 'Course merged';
 $string['eventbackupgenerated'] = 'Backup generated';
+$string['eventbackupcompressed'] = 'Backup compression';
+$string['eventbackupstored'] = 'Backup storage';
+$string['eventbackupfileretrieved'] = 'Backup file retrieval';
+$string['eventbackupdecompressed'] = 'Backup file decompression';

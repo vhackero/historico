@@ -7,6 +7,8 @@ global $CFG;
 require_once($CFG->dirroot . '/backup/util/includes/backup_includes.php');
 require_once($CFG->dirroot . '/local/versionamiento_de_aulas/lib.php');
 require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_generated.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_compressed.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_stored.php');
 
 class generar_respaldos_task extends \core\task\scheduled_task {
     public function get_name() { return "Procesar cola de respaldos de aulas"; }
@@ -80,8 +82,20 @@ class generar_respaldos_task extends \core\task\scheduled_task {
 
                     $zstpath = local_versionamiento_de_aulas_compress_mbz_to_zst($mbzpath);
                     $zstfilename = basename($zstpath);
+                    $eventcontext = \context_course::instance($t->courseid, IGNORE_MISSING);
+                    if ($eventcontext) {
+                        \local_versionamiento_de_aulas\event\backup_compressed::create([
+                            'objectid' => $t->id,
+                            'context' => $eventcontext,
+                            'courseid' => $t->courseid,
+                            'userid' => $t->userid,
+                        ])->trigger();
+                    }
+
+                    $destination = 'local';
                     if ($use_repository_path) {
                         local_versionamiento_de_aulas_copy_to_repository($zstpath);
+                        $destination = 'remoto';
                     } else {
                         local_versionamiento_de_aulas_copy_to_local_repository($zstpath);
                     }
@@ -105,8 +119,15 @@ class generar_respaldos_task extends \core\task\scheduled_task {
                         'timemodified' => time()
                     ]);
 
-                    $eventcontext = \context_course::instance($t->courseid, IGNORE_MISSING);
                     if ($eventcontext) {
+                        \local_versionamiento_de_aulas\event\backup_stored::create([
+                            'objectid' => $t->id,
+                            'context' => $eventcontext,
+                            'courseid' => $t->courseid,
+                            'userid' => $t->userid,
+                            'other' => ['destination' => $destination],
+                        ])->trigger();
+
                         \local_versionamiento_de_aulas\event\backup_generated::create([
                             'objectid' => $t->id,
                             'context' => $eventcontext,

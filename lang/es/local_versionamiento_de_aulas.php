@@ -22,3 +22,7 @@ $string['eventbackuprequested'] = 'Respaldo solicitado';
 $string['eventbackupdeleted'] = 'Respaldo eliminado';
 $string['eventcoursemerged'] = 'Aula fusionada';
 $string['eventbackupgenerated'] = 'Respaldo generado';
+$string['eventbackupcompressed'] = 'Compresión del respaldo';
+$string['eventbackupstored'] = 'Almacenamiento del respaldo';
+$string['eventbackupfileretrieved'] = 'Obtención del archivo de respaldo';
+$string['eventbackupdecompressed'] = 'Descompresión del archivo de respaldo';

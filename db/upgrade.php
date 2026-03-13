@@ -27,5 +27,16 @@ function xmldb_local_versionamiento_de_aulas_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 20260212007, 'local', 'versionamiento_de_aulas');
     }
 
+    if ($oldversion < 20260212008) {
+        $table = new xmldb_table('local_ver_aulas_cola');
+        $field = new xmldb_field('status', XMLDB_TYPE_CHAR, '50', null, XMLDB_NOTNULL, null, 'pendiente', 'courseid');
+
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->change_field_type($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 20260212008, 'local', 'versionamiento_de_aulas');
+    }
+
     return true;
 }
