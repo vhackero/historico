@@ -26,3 +26,4 @@ $string['eventbackupcompressed'] = 'Compresión del respaldo';
 $string['eventbackupstored'] = 'Almacenamiento del respaldo';
 $string['eventbackupfileretrieved'] = 'Obtención del archivo de respaldo';
 $string['eventbackupdecompressed'] = 'Descompresión del archivo de respaldo';
+$string['restoreformatwarning'] = 'Advertencia: el formato actual del curso es "{$a->current}" y no coincide con el formato esperado "{$a->expected}" (Formato de botones en Aulas 2024). Aun así, la restauración continuará.';

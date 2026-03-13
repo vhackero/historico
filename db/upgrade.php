@@ -43,5 +43,15 @@ function xmldb_local_versionamiento_de_aulas_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 20260212009, 'local', 'versionamiento_de_aulas');
     }
 
+    if ($oldversion < 20260212010) {
+        // Versión de mantenimiento para incorporar validación de formato en restauración.
+        upgrade_plugin_savepoint(true, 20260212010, 'local', 'versionamiento_de_aulas');
+    }
+
+    if ($oldversion < 20260212011) {
+        // Versión de mantenimiento para alinear validación con formato Buttons (Aulas 2024).
+        upgrade_plugin_savepoint(true, 20260212011, 'local', 'versionamiento_de_aulas');
+    }
+
     return true;
 }

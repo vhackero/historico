@@ -26,3 +26,4 @@ $string['eventbackupcompressed'] = 'Backup compression';
 $string['eventbackupstored'] = 'Backup storage';
 $string['eventbackupfileretrieved'] = 'Backup file retrieval';
 $string['eventbackupdecompressed'] = 'Backup file decompression';
+$string['restoreformatwarning'] = 'Warning: the current course format is "{$a->current}" and does not match the expected format "{$a->expected}" (Buttons format in Aulas 2024). The restore will continue anyway.';

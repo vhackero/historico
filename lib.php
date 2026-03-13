@@ -55,6 +55,43 @@ function local_versionamiento_de_aulas_is_zst_filename(string $filename): bool {
 }
 
 /**
+ * Valida si el formato del curso coincide con el formato esperado para restauración.
+ *
+ * @param int $courseid
+ * @return array{matches:bool,current:string,expected:string}
+ */
+function local_versionamiento_de_aulas_validate_restore_course_format(int $courseid): array {
+    global $DB;
+
+    $course = $DB->get_record('course', ['id' => $courseid], 'id, format', MUST_EXIST);
+    $current = trim((string)$course->format);
+    $expected = trim((string)get_config('local_versionamiento_de_aulas', 'expected_course_format'));
+    if ($expected === '') {
+        $expected = 'buttons';
+    }
+
+    $normalize = static function(string $format): string {
+        $value = strtolower(trim($format));
+        if ($value === 'formato de botones' || $value === 'formato botones' || $value === 'buttons format') {
+            return 'buttons';
+        }
+        if ($value === 'format_buttons') {
+            return 'buttons';
+        }
+        return $value;
+    };
+
+    $currentnormalized = $normalize($current);
+    $expectednormalized = $normalize($expected);
+
+    return [
+        'matches' => ($currentnormalized === $expectednormalized),
+        'current' => $current,
+        'expected' => $expectednormalized,
+    ];
+}
+
+/**
  * Comprime un respaldo MBZ con /bin/zstd a nivel 20 y multihilo automático.
  *
  * @param string $mbzpath Ruta absoluta al archivo .mbz.

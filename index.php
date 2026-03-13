@@ -126,6 +126,18 @@ if ($file_id && $confirm && $puede_restaurar) {
         check_dir_exists($temp_path, true, true);
         $archive_path = $temp_path . '/' . $file->get_filename();
         $file->copy_content_to($archive_path);
+
+        $formatvalidation = local_versionamiento_de_aulas_validate_restore_course_format($courseid);
+        if (!$formatvalidation['matches']) {
+            echo $OUTPUT->notification(
+                get_string('restoreformatwarning', 'local_versionamiento_de_aulas', (object)[
+                    'expected' => $formatvalidation['expected'],
+                    'current' => $formatvalidation['current'],
+                ]),
+                'notifywarning'
+            );
+        }
+
         \local_versionamiento_de_aulas\event\backup_file_retrieved::create([
             'objectid' => $file->get_id(),
             'context' => $context,

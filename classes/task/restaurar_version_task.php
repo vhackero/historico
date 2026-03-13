@@ -32,6 +32,19 @@ class restaurar_version_task {
 
             $archivepath = $path . '/' . $file->get_filename();
             $file->copy_content_to($archivepath);
+
+            $formatvalidation = local_versionamiento_de_aulas_validate_restore_course_format($courseid);
+            if (!$formatvalidation['matches']) {
+                $this->log(
+                    get_string('restoreformatwarning', 'local_versionamiento_de_aulas', (object)[
+                        'expected' => $formatvalidation['expected'],
+                        'current' => $formatvalidation['current'],
+                    ]),
+                    $isweb,
+                    20
+                );
+            }
+
             $eventcontext = \context_course::instance($courseid, IGNORE_MISSING);
             if ($eventcontext) {
                 \local_versionamiento_de_aulas\event\backup_file_retrieved::create([
