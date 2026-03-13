@@ -11,11 +11,11 @@ class backup_file_retrieved extends \core\event\base {
     }
 
     public static function get_name() {
-        return get_string('eventbackupfileretrieved', 'local_versionamiento_de_aulas');
+        return 'Obtención del archivo de respaldo';
     }
 
     public function get_description() {
-        return "Se obtuvo un archivo de respaldo para restauración en el curso con id '{$this->courseid}'.";
+        return "Obtención: se recuperó el archivo de respaldo desde el almacenamiento para iniciar restauración en el curso '{$this->courseid}'.";
     }
 
     public function get_url() {

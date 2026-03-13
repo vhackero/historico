@@ -11,11 +11,11 @@ class course_merged extends \core\event\base {
     }
 
     public static function get_name() {
-        return get_string('eventcoursemerged', 'local_versionamiento_de_aulas');
+        return 'Reutilización del aula';
     }
 
     public function get_description() {
-        return "El usuario con id '{$this->userid}' fusionó contenido en el curso con id '{$this->courseid}'.";
+        return "Reutilización del aula: el usuario '{$this->userid}' fusionó o restauró contenido en el curso '{$this->courseid}'.";
     }
 
     public function get_url() {

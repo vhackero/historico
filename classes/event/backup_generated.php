@@ -11,11 +11,11 @@ class backup_generated extends \core\event\base {
     }
 
     public static function get_name() {
-        return get_string('eventbackupgenerated', 'local_versionamiento_de_aulas');
+        return 'Respaldo generado';
     }
 
     public function get_description() {
-        return "Se generó un respaldo para el curso con id '{$this->courseid}' y usuario '{$this->userid}'.";
+        return "Respaldo: se completó la generación del archivo base para el curso '{$this->courseid}' asociado al docente '{$this->userid}' (solicitud '{$this->objectid}').";
     }
 
     public function get_url() {

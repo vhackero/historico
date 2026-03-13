@@ -11,11 +11,11 @@ class backup_compressed extends \core\event\base {
     }
 
     public static function get_name() {
-        return get_string('eventbackupcompressed', 'local_versionamiento_de_aulas');
+        return 'Compresión del respaldo';
     }
 
     public function get_description() {
-        return "Se comprimió el respaldo del curso con id '{$this->courseid}' para la solicitud '{$this->objectid}'.";
+        return "Compresión: el respaldo del curso '{$this->courseid}' fue comprimido en formato Zstandard (.zst) para la solicitud '{$this->objectid}'.";
     }
 
     public function get_url() {

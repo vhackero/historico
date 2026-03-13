@@ -11,11 +11,11 @@ class backup_decompressed extends \core\event\base {
     }
 
     public static function get_name() {
-        return get_string('eventbackupdecompressed', 'local_versionamiento_de_aulas');
+        return 'Descompresión del archivo de respaldo';
     }
 
     public function get_description() {
-        return "Se descomprimió un respaldo para restauración en el curso con id '{$this->courseid}'.";
+        return "Descompresión: el archivo de respaldo comprimido fue descomprimido para continuar la restauración en el curso '{$this->courseid}'.";
     }
 
     public function get_url() {

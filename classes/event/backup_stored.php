@@ -11,12 +11,12 @@ class backup_stored extends \core\event\base {
     }
 
     public static function get_name() {
-        return get_string('eventbackupstored', 'local_versionamiento_de_aulas');
+        return 'Almacenamiento del respaldo';
     }
 
     public function get_description() {
         $destination = $this->other['destination'] ?? 'desconocido';
-        return "Se almacenó el respaldo del curso con id '{$this->courseid}' en destino '{$destination}' para la solicitud '{$this->objectid}'.";
+        return "Almacenamiento: el respaldo comprimido del curso '{$this->courseid}' se guardó en el destino '{$destination}' para la solicitud '{$this->objectid}'.";
     }
 
     public function get_url() {

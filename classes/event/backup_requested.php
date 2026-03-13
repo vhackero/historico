@@ -11,11 +11,11 @@ class backup_requested extends \core\event\base {
     }
 
     public static function get_name() {
-        return get_string('eventbackuprequested', 'local_versionamiento_de_aulas');
+        return 'Respaldo solicitado por docente';
     }
 
     public function get_description() {
-        return "El usuario con id '{$this->userid}' solicitó un respaldo para el curso con id '{$this->courseid}'.";
+        return "Respaldo: el docente con id '{$this->userid}' solicitó la generación de un respaldo para el curso '{$this->courseid}' (solicitud '{$this->objectid}').";
     }
 
     public function get_url() {

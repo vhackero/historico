@@ -11,11 +11,11 @@ class backup_deleted extends \core\event\base {
     }
 
     public static function get_name() {
-        return get_string('eventbackupdeleted', 'local_versionamiento_de_aulas');
+        return 'Respaldo eliminado';
     }
 
     public function get_description() {
-        return "El usuario con id '{$this->userid}' eliminó un respaldo para el curso con id '{$this->courseid}'.";
+        return "Respaldo: el usuario '{$this->userid}' eliminó un respaldo del curso '{$this->courseid}', incluyendo su limpieza en repositorio configurado cuando aplica.";
     }
 
     public function get_url() {
