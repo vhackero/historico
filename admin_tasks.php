@@ -6,6 +6,8 @@
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 require_once($CFG->libdir . '/tablelib.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/lib.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_deleted.php');
 
 // Configuración de la página en el menú de administración
 admin_externalpage_setup('local_versionamiento_admin');
@@ -43,14 +45,38 @@ if (optional_param('ajax', 0, PARAM_INT)) {
 if ($action === 'delete' && $id_reg) {
     $registro = $DB->get_record('local_ver_aulas_cola', ['id' => $id_reg]);
     if ($registro) {
+        if (!empty($registro->backupfileid)) {
+            $fs = get_file_storage();
+            if ($file = $fs->get_file_by_id($registro->backupfileid)) {
+                $filename = $file->get_filename();
+                local_versionamiento_de_aulas_delete_from_repositories($filename);
+                $file->delete();
+            }
+        }
+
+        $coursecontext = \context_course::instance($registro->courseid, IGNORE_MISSING);
+        if ($coursecontext) {
+            $fs = get_file_storage();
+            $fs->delete_area_files($coursecontext->id, 'local_versionamiento_de_aulas', 'backup', $registro->id);
+        }
+
         $DB->insert_record('local_ver_aulas_logs', [
             'userid'      => $registro->userid,
             'courseid'    => $registro->courseid,
             'action'      => 'respaldo_eliminado',
-            'info'        => 'Eliminado manualmente de la cola por el administrador.',
+            'info'        => 'Eliminado manualmente de la cola por el administrador y removido de repositorios.',
             'timecreated' => time()
         ]);
         $DB->delete_records('local_ver_aulas_cola', ['id' => $id_reg]);
+
+        $eventcontext = \context_course::instance($registro->courseid, IGNORE_MISSING) ?: \context_system::instance();
+        \local_versionamiento_de_aulas\event\backup_deleted::create([
+            'objectid' => $id_reg,
+            'context' => $eventcontext,
+            'courseid' => $registro->courseid,
+            'userid' => $USER->id,
+        ])->trigger();
+
         redirect(new moodle_url('/local/versionamiento_de_aulas/admin_tasks.php'), "Registro eliminado", 1);
     }
 }

@@ -7,6 +7,12 @@
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/lib.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/course_merged.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_deleted.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_requested.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_file_retrieved.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/classes/event/backup_decompressed.php');
 
 $courseid = required_param('id', PARAM_INT);
 $course = $DB->get_record('course', array('id' => $courseid), '*', MUST_EXIST);
@@ -53,12 +59,20 @@ $respaldo_actual = $DB->get_record('local_ver_aulas_cola', [
 ]);
 
 if (optional_param('solicitar', 0, PARAM_INT) && $puede_respaldar && !$respaldo_actual) {
-    $DB->insert_record('local_ver_aulas_cola', [
+    $requestid = $DB->insert_record('local_ver_aulas_cola', [
         'userid'      => $USER->id,
         'courseid'    => $courseid,
         'status'      => 'pendiente',
         'timecreated' => time()
     ]);
+
+    \local_versionamiento_de_aulas\event\backup_requested::create([
+        'objectid' => $requestid,
+        'context' => $context,
+        'courseid' => $courseid,
+        'userid' => $USER->id,
+    ])->trigger();
+
     redirect($PAGE->url, "Solicitud registrada.", 1);
 }
 
@@ -68,6 +82,8 @@ if (optional_param('eliminar', 0, PARAM_INT) && $respaldo_actual) {
     // 1. Borrado por ID de archivo específico
     if (!empty($respaldo_actual->backupfileid)) {
         if ($file = $fs->get_file_by_id($respaldo_actual->backupfileid)) {
+            $filename = $file->get_filename();
+            local_versionamiento_de_aulas_delete_from_repositories($filename);
             $file->delete();
         }
     }
@@ -76,10 +92,18 @@ if (optional_param('eliminar', 0, PARAM_INT) && $respaldo_actual) {
     $fs->delete_area_files($context->id, 'local_versionamiento_de_aulas', 'backup', $respaldo_actual->id);
 
     // 3. Borrado de la base de datos (Estricto: id + userid)
+    $deletedid = $respaldo_actual->id;
     $DB->delete_records('local_ver_aulas_cola', [
-        'id'     => $respaldo_actual->id,
+        'id'     => $deletedid,
         'userid' => $USER->id
     ]);
+
+    \local_versionamiento_de_aulas\event\backup_deleted::create([
+        'objectid' => $deletedid,
+        'context' => $context,
+        'courseid' => $courseid,
+        'userid' => $USER->id,
+    ])->trigger();
 
     redirect($PAGE->url, "Registro eliminado.", 1);
 }
@@ -99,10 +123,40 @@ if ($file_id && $confirm && $puede_restaurar) {
         if (!$file) throw new moodle_exception('filenotfound', 'error');
         $folder = \restore_controller::get_tempdir_name($courseid, $admin_user->id);
         $temp_path = $CFG->dataroot . '/temp/backup/' . $folder;
-        $file->extract_to_pathname(get_file_packer('application/vnd.moodle.backup'), $temp_path);
+        check_dir_exists($temp_path, true, true);
+        $archive_path = $temp_path . '/' . $file->get_filename();
+        $file->copy_content_to($archive_path);
+        \local_versionamiento_de_aulas\event\backup_file_retrieved::create([
+            'objectid' => $file->get_id(),
+            'context' => $context,
+            'courseid' => $courseid,
+            'userid' => $original_user->id,
+        ])->trigger();
+
+        $waszst = local_versionamiento_de_aulas_is_zst_filename($archive_path);
+        $mbz_path = local_versionamiento_de_aulas_prepare_backup_archive($archive_path);
+        if ($waszst) {
+            \local_versionamiento_de_aulas\event\backup_decompressed::create([
+                'objectid' => $file->get_id(),
+                'context' => $context,
+                'courseid' => $courseid,
+                'userid' => $original_user->id,
+            ])->trigger();
+        }
+        get_file_packer('application/vnd.moodle.backup')->extract_to_pathname($mbz_path, $temp_path);
         $rc = new \restore_controller($folder, $courseid, \backup::INTERACTIVE_NO, \backup::MODE_GENERAL, $admin_user->id, \backup::TARGET_EXISTING_ADDING);
         if ($rc->execute_precheck()) { $rc->execute_plan(); }
         $rc->destroy();
+
+        $eventclass = '\local_versionamiento_de_aulas\event\course_merged';
+        if (class_exists($eventclass)) {
+            $eventclass::create([
+                'objectid' => $courseid,
+                'context' => $context,
+                'courseid' => $courseid,
+                'userid' => $original_user->id,
+            ])->trigger();
+        }
         \core\session\manager::set_user($original_user);
         echo $OUTPUT->notification('Contenido fusionado con éxito.', 'notifysuccess');
         echo "<div class='text-center mt-3'><a href='{$CFG->wwwroot}/course/view.php?id={$courseid}' class='btn btn-success rounded-pill'>Volver al Curso</a></div>";
