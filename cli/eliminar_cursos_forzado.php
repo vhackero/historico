@@ -65,8 +65,61 @@ foreach ($courses_to_delete as $course) {
     echo "📦 Procesando limpieza total: [$course->id] $course->fullname\n";
 
     if (!$is_dry_run) {
-        // A. Obtener contexto antes de borrar el curso (necesario para los logs)
-        $coursecontext = \context_course::instance($course->id);
+        // A. Obtener contexto del curso y depurar primero la cola del plugin
+        // antes del borrado del curso, para poder actualizar estados con trazabilidad.
+        $coursecontext = \context_course::instance($course->id, IGNORE_MISSING);
+        $registros_cola = $DB->get_records('local_ver_aulas_cola', ['courseid' => $course->id]);
+        $fs = get_file_storage();
+
+        foreach ($registros_cola as $registro_cola) {
+            $docente = $DB->get_record('user', ['id' => $registro_cola->userid], 'id, suspended, deleted', IGNORE_MISSING);
+            $docentebaja = !$docente || ((int)$docente->suspended === 1 || (int)$docente->deleted === 1);
+
+            if ($docentebaja) {
+                if (!empty($registro_cola->backupfileid)) {
+                    $file = $fs->get_file_by_id($registro_cola->backupfileid);
+                    if ($file) {
+                        $filename = $file->get_filename();
+                        local_versionamiento_de_aulas_delete_from_repositories($filename);
+                        $file->delete();
+                        echo "   🗑️ Respaldo eliminado por baja docente: {$filename}\n";
+                    }
+                }
+
+                if ($coursecontext) {
+                    $fs->delete_area_files($coursecontext->id, 'local_versionamiento_de_aulas', 'backup', $registro_cola->id);
+                }
+
+                $DB->update_record('local_ver_aulas_cola', (object)[
+                    'id' => $registro_cola->id,
+                    'status' => 'eliminado_baja_docente',
+                    'backupfileid' => null,
+                    'timemodified' => time(),
+                ]);
+
+                $DB->insert_record('local_ver_aulas_logs', [
+                    'userid' => (int)$registro_cola->userid,
+                    'courseid' => (int)$course->id,
+                    'action' => 'respaldo_eliminado_baja_docente',
+                    'info' => 'Respaldo eliminado automáticamente por baja/suspensión del docente durante la eliminación del bloque histórico.',
+                    'timecreated' => time(),
+                ]);
+                continue;
+            }
+
+            // Comportamiento existente para respaldos de docentes activos.
+            if ($options['deletefile'] && !empty($target_dir)) {
+                $pattern = $target_dir . "Respaldo_*_ID{$course->id}_*";
+                foreach (glob($pattern) as $filename) {
+                    if (is_file($filename) && @unlink($filename)) {
+                        echo "   🗑️ Archivo externo borrado: " . basename($filename) . "\n";
+                    }
+                }
+            }
+
+            $DB->delete_records('local_ver_aulas_cola', ['id' => $registro_cola->id]);
+            echo "   🧹 Registro de cola eliminado.\n";
+        }
 
         // B. BORRADO NATIVO DE MOODLE (Actividades, archivos de curso, notas)
         if (delete_course($course, false)) {
@@ -74,61 +127,9 @@ foreach ($courses_to_delete as $course) {
 
             // C. LIMPIEZA DE LOGS ESTÁNDAR (mdl_logstore_standard_log)
             // Borramos por contextid para asegurar que no quede rastro de actividad
-            $DB->delete_records('logstore_standard_log', ['contextid' => $coursecontext->id]);
-            echo "   🔥 Logs de actividad (standard_log) purgados.\n";
-
-            // D. LIMPIEZA DE TABLA DE COLA (local_ver_aulas_cola)
-            $registros_cola = $DB->get_records('local_ver_aulas_cola', ['courseid' => $course->id]);
-            foreach ($registros_cola as $registro_cola) {
-                $docente = $DB->get_record('user', ['id' => $registro_cola->userid], 'id, suspended, deleted', IGNORE_MISSING);
-                $docentebaja = $docente && ((int)$docente->suspended === 1 || (int)$docente->deleted === 1);
-
-                if ($docentebaja) {
-                    $fs = get_file_storage();
-                    if (!empty($registro_cola->backupfileid)) {
-                        $file = $fs->get_file_by_id($registro_cola->backupfileid);
-                        if ($file) {
-                            $filename = $file->get_filename();
-                            local_versionamiento_de_aulas_delete_from_repositories($filename);
-                            $file->delete();
-                            echo "   🗑️ Respaldo eliminado por baja docente: {$filename}\n";
-                        }
-                    }
-
-                    $coursecontext = \context_course::instance($course->id, IGNORE_MISSING);
-                    if ($coursecontext) {
-                        $fs->delete_area_files($coursecontext->id, 'local_versionamiento_de_aulas', 'backup', $registro_cola->id);
-                    }
-
-                    $DB->update_record('local_ver_aulas_cola', (object)[
-                        'id' => $registro_cola->id,
-                        'status' => 'eliminado_baja_docente',
-                        'backupfileid' => null,
-                        'timemodified' => time(),
-                    ]);
-
-                    $DB->insert_record('local_ver_aulas_logs', [
-                        'userid' => $registro_cola->userid,
-                        'courseid' => $course->id,
-                        'action' => 'respaldo_eliminado_baja_docente',
-                        'info' => 'Respaldo eliminado automáticamente por baja/suspensión del docente durante la purga histórica.',
-                        'timecreated' => time(),
-                    ]);
-                    continue;
-                }
-
-                // Borrado opcional de archivo físico (.mbz/.zst)
-                if ($options['deletefile'] && !empty($target_dir)) {
-                    $pattern = $target_dir . "Respaldo_*_ID{$course->id}_*";
-                    foreach (glob($pattern) as $filename) {
-                        if (is_file($filename) && @unlink($filename)) {
-                            echo "   🗑️ Archivo externo borrado: " . basename($filename) . "\n";
-                        }
-                    }
-                }
-
-                $DB->delete_records('local_ver_aulas_cola', ['id' => $registro_cola->id]);
-                echo "   🧹 Registro de cola eliminado.\n";
+            if ($coursecontext) {
+                $DB->delete_records('logstore_standard_log', ['contextid' => $coursecontext->id]);
+                echo "   🔥 Logs de actividad (standard_log) purgados.\n";
             }
 
             // E. REGISTRO FINAL DE AUDITORÍA (local_ver_aulas_logs)
