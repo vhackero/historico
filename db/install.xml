@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/versionamiento_de_aulas/db" VERSION="20260212" COMMENT="Tablas para el versionamiento de aulas, optimizacion y trazabilidad">
+<XMLDB PATH="local/versionamiento_de_aulas/db" VERSION="2026021201" COMMENT="Tablas para el versionamiento de aulas, optimizacion y trazabilidad">
     <TABLES>
         <TABLE NAME="local_ver_aulas_cola" COMMENT="Cola de tareas de respaldo">
             <FIELDS>
@@ -9,6 +9,7 @@
                 <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="pendiente" COMMENT="Estado: pendiente, procesando, finalizado, error"/>
                 <FIELD NAME="backupfileid" TYPE="int" LENGTH="10" NOTNULL="false" COMMENT="Referencia al archivo MBZ en el storage de Moodle"/>
                 <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" COMMENT="Fecha de creacion del registro"/>
+                <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="false" COMMENT="Fecha de última modificación del registro"/>
             </FIELDS>
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id" COMMENT="Llave primaria"/>

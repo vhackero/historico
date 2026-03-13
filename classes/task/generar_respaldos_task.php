@@ -5,6 +5,7 @@ defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
 require_once($CFG->dirroot . '/backup/util/includes/backup_includes.php');
+require_once($CFG->dirroot . '/local/versionamiento_de_aulas/lib.php');
 
 class generar_respaldos_task extends \core\task\scheduled_task {
     public function get_name() { return "Procesar cola de respaldos de aulas"; }
@@ -41,7 +42,7 @@ class generar_respaldos_task extends \core\task\scheduled_task {
         $total = count($tareas);
         $count = 0;
         $admin = get_admin();
-        $target_dir = get_config('local_versionamiento_de_aulas', 'repository_path');
+        $use_repository_path = (bool)get_config('local_versionamiento_de_aulas', 'use_repository_path');
 
         if (empty($tareas)) {
             if ($manual) $this->web_log("No hay respaldos pendientes.", 100);
@@ -69,11 +70,20 @@ class generar_respaldos_task extends \core\task\scheduled_task {
                 $results = $bc->get_results();
                 if (isset($results['backup_destination'])) {
                     $file = $results['backup_destination'];
-                    if (!is_dir($target_dir)) { @mkdir($target_dir, 0777, true); }
 
+                    $workdir = make_request_directory('local_versionamiento_de_aulas');
                     $clean_name = clean_filename($shortname);
                     $new_filename = "Respaldo_{$clean_name}_ID{$t->courseid}_T{$t->id}_" . date('Ymd_His') . ".mbz";
-                    $file->copy_content_to($target_dir . $new_filename);
+                    $mbzpath = $workdir . '/' . $new_filename;
+                    $file->copy_content_to($mbzpath);
+
+                    $zstpath = local_versionamiento_de_aulas_compress_mbz_to_zst($mbzpath);
+                    $zstfilename = basename($zstpath);
+                    if ($use_repository_path) {
+                        local_versionamiento_de_aulas_copy_to_repository($zstpath);
+                    } else {
+                        local_versionamiento_de_aulas_copy_to_local_repository($zstpath);
+                    }
 
                     $fs = get_file_storage();
                     $file_record = [
@@ -82,10 +92,10 @@ class generar_respaldos_task extends \core\task\scheduled_task {
                         'filearea' => 'backup',
                         'itemid' => $t->id,
                         'filepath' => '/',
-                        'filename' => $new_filename,
+                        'filename' => $zstfilename,
                         'userid' => $t->userid,
                     ];
-                    $stored_file = $fs->create_file_from_storedfile($file_record, $file);
+                    $stored_file = $fs->create_file_from_pathname($file_record, $zstpath);
 
                     $DB->update_record('local_ver_aulas_cola', (object)[
                         'id' => $t->id,
@@ -94,15 +104,42 @@ class generar_respaldos_task extends \core\task\scheduled_task {
                         'timemodified' => time()
                     ]);
 
+                    $eventcontext = \context_course::instance($t->courseid, IGNORE_MISSING);
+                    if ($eventcontext) {
+                        \local_versionamiento_de_aulas\event\backup_generated::create([
+                            'objectid' => $t->id,
+                            'context' => $eventcontext,
+                            'courseid' => $t->courseid,
+                            'userid' => $t->userid,
+                        ])->trigger();
+                    }
+
                     if ($manual) $this->web_log("Completado: {$shortname}", $p);
                 }
                 $bc->destroy();
             } catch (\Exception $e) {
                 $DB->set_field('local_ver_aulas_cola', 'status', 'error', ['id' => $t->id]);
+                $this->log_event($t->userid, $t->courseid, 'respaldo_error', $e->getMessage());
                 if ($manual) $this->web_log("ERROR en {$shortname}: " . $e->getMessage(), $p);
             }
         }
         if ($manual) $this->web_log("Proceso terminado.", 100);
+    }
+
+    private function log_event($userid, $courseid, $action, $info) {
+        global $DB;
+
+        try {
+            $DB->insert_record('local_ver_aulas_logs', (object)[
+                'userid' => (int)$userid,
+                'courseid' => (int)$courseid,
+                'action' => $action,
+                'info' => $info,
+                'timecreated' => time(),
+            ]);
+        } catch (\Exception $ignored) {
+            // Evitamos romper el flujo principal por fallos de auditoría.
+        }
     }
 
     private function web_log($m, $p) {
