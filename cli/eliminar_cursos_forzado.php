@@ -53,7 +53,10 @@ if (empty($courses_to_delete)) {
 
 echo "🔍 Encontrados " . count($courses_to_delete) . " cursos para purgar.\n\n";
 
-$target_dir = get_config('local_versionamiento_de_aulas', 'repository_path');
+$target_dir = get_config('local_versionamiento_de_aulas', 'local_repository_path');
+if (empty($target_dir)) {
+    $target_dir = get_config('local_versionamiento_de_aulas', 'repository_path');
+}
 
 foreach ($courses_to_delete as $course) {
     if ($course->id == SITEID) continue;
@@ -76,11 +79,13 @@ foreach ($courses_to_delete as $course) {
             // D. LIMPIEZA DE TU TABLA DE COLA (local_ver_aulas_cola)
             $registro_cola = $DB->get_record('local_ver_aulas_cola', ['courseid' => $course->id]);
             if ($registro_cola) {
-                // Borrado opcional de archivo físico .mbz
+                // Borrado opcional de archivo físico (.mbz/.zst)
                 if ($options['deletefile'] && !empty($target_dir)) {
                     $pattern = $target_dir . "Respaldo_*_ID{$course->id}_*";
                     foreach (glob($pattern) as $filename) {
-                        if (@unlink($filename)) echo "   🗑️ Archivo externo borrado: " . basename($filename) . "\n";
+                        if (is_file($filename) && @unlink($filename)) {
+                            echo "   🗑️ Archivo externo borrado: " . basename($filename) . "\n";
+                        }
                     }
                 }
                 $DB->delete_records('local_ver_aulas_cola', ['id' => $registro_cola->id]);
