@@ -21,14 +21,29 @@ class generar_respaldos_task extends \core\task\scheduled_task {
     public function execute($manual = false, $filter_ids = null) {
         global $DB, $CFG;
 
+        $clearcronprogramming = false;
         if (!$manual) {
-            $prog_fecha = get_config('local_versionamiento_de_aulas', 'backup_cron_date');
-            $prog_hora  = (int)get_config('local_versionamiento_de_aulas', 'backup_cron_hour');
-            if (!empty($prog_fecha)) {
-                if (date('Y-m-d') < $prog_fecha || (date('Y-m-d') === $prog_fecha && (int)date('H') < $prog_hora)) {
-                    return;
-                }
+            $progfecha = trim((string)get_config('local_versionamiento_de_aulas', 'backup_cron_date'));
+            $proghora = (int)get_config('local_versionamiento_de_aulas', 'backup_cron_hour');
+
+            // En ejecución automática sólo se procesa si existe fecha/hora programada.
+            if ($progfecha === '') {
+                return;
             }
+
+            $scheduled = \DateTimeImmutable::createFromFormat('Y-m-d H:i', $progfecha . ' ' . sprintf('%02d', $proghora));
+            if (!$scheduled) {
+                // Si el valor configurado no es válido, no procesamos para evitar ejecuciones anticipadas.
+                return;
+            }
+
+            $now = new \DateTimeImmutable('now');
+            if ($now < $scheduled) {
+                return;
+            }
+
+            // Programación de una sola ejecución: al abrir ventana, se limpia al finalizar.
+            $clearcronprogramming = true;
         }
 
         $params = ['status' => 'pendiente'];
@@ -48,6 +63,10 @@ class generar_respaldos_task extends \core\task\scheduled_task {
         $use_repository_path = (bool)get_config('local_versionamiento_de_aulas', 'use_repository_path');
 
         if (empty($tareas)) {
+            if ($clearcronprogramming) {
+                set_config('backup_cron_date', '', 'local_versionamiento_de_aulas');
+                set_config('backup_cron_hour', '', 'local_versionamiento_de_aulas');
+            }
             if ($manual) $this->web_log("No hay respaldos pendientes.", 100);
             return;
         }
@@ -144,6 +163,10 @@ class generar_respaldos_task extends \core\task\scheduled_task {
                 $this->log_event($t->userid, $t->courseid, 'respaldo_error', $e->getMessage());
                 if ($manual) $this->web_log("ERROR en {$shortname}: " . $e->getMessage(), $p);
             }
+        }
+        if ($clearcronprogramming) {
+            set_config('backup_cron_date', '', 'local_versionamiento_de_aulas');
+            set_config('backup_cron_hour', '', 'local_versionamiento_de_aulas');
         }
         if ($manual) $this->web_log("Proceso terminado.", 100);
     }
