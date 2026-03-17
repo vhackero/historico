@@ -38,7 +38,16 @@ if ($hassiteconfig) {
 
     // Campos originales de limpieza y repositorio
     $settings_tecnico->add(new admin_setting_heading('header_tecnico', 'Configuración Técnica', ''));
+    $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/expected_course_format', 'Formato de curso esperado para restauración', 'Shortname del formato esperado (ej: buttons para Formato de botones). Si el curso tiene otro formato, se mostrará advertencia pero la restauración continuará.', 'buttons', PARAM_ALPHANUMEXT));
     $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/cron_eliminar_mbz_fecha', 'Fecha para eliminar archivos .mbz', '', '', PARAM_TEXT));
+    $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/local_repository_path', 'Ruta local de respaldos', 'Ruta local en el servidor Moodle donde se almacenarán los respaldos .zst cuando NO se use repositorio remoto.', '/www/backups/', PARAM_TEXT));
+    $settings_tecnico->add(new admin_setting_configcheckbox('local_versionamiento_de_aulas/use_repository_path', 'Guardar respaldos en repositorio externo', 'Si se habilita, se guardará también una copia comprimida (.zst) en la ruta del repositorio.', 0));
+    $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/repository_host', 'Host/IP del repositorio remoto', 'Nombre DNS o dirección IP del host remoto donde reside el repositorio.', '', PARAM_HOST));
+    $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/repository_port', 'Puerto SSH del repositorio remoto', 'Puerto para conexión SSH/SCP al host remoto.', '22', PARAM_INT));
+    $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/repository_user', 'Usuario remoto', 'Usuario con permisos para crear carpetas y subir respaldos al host remoto.', '', PARAM_USERNAME));
+    $settings_tecnico->add(new admin_setting_configselect('local_versionamiento_de_aulas/repository_auth_method', 'Método de autenticación remota', '', 'password', ['password' => 'Usuario/contraseña', 'key' => 'Llave privada SSH']));
+    $settings_tecnico->add(new admin_setting_configpasswordunmask('local_versionamiento_de_aulas/repository_password', 'Contraseña remota', 'Contraseña del usuario remoto (solo si usa autenticación por contraseña).', ''));
+    $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/repository_private_key', 'Ruta de llave privada SSH', 'Ruta absoluta en el servidor Moodle (solo si usa autenticación por llave). Ej: /home/apache/.ssh/id_rsa', '', PARAM_RAW_TRIMMED));
     $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/repository_path', 'Ruta del repositorio', '', '/www/backups/', PARAM_TEXT));
     $settings_tecnico->add(new admin_setting_configduration('local_versionamiento_de_aulas/retention_days', 'Días de disponibilidad del respaldo', '', 60 * 60 * 24 * 30));
 
