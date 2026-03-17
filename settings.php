@@ -25,7 +25,7 @@ if ($hassiteconfig) {
     // Se agregan los campos de programación para que la tarea de respaldos sepa cuándo actuar
     $settings_tecnico->add(new admin_setting_heading('header_cron_respaldos', 'Configuración de ejecución del cron (Respaldos)', 'Define la programación para procesar la cola de respaldos.'));
     $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/backup_cron_date', 'Fecha de ejecución respaldos', 'Formato YYYY-MM-DD', '', PARAM_TEXT));
-    $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/backup_cron_hour', 'Hora de ejecución respaldos', 'Hora (0-23)', '0', PARAM_RAW));
+    $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/backup_cron_hour', 'Hora de ejecución respaldos', 'Hora (0-23)', '0', PARAM_INT));
 
     $options_freq = [
         '1' => 'Cada minuto',

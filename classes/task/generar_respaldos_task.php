@@ -24,10 +24,23 @@ class generar_respaldos_task extends \core\task\scheduled_task {
         $clearcronprogramming = false;
         if (!$manual) {
             $progfecha = trim((string)get_config('local_versionamiento_de_aulas', 'backup_cron_date'));
-            $proghora = (int)get_config('local_versionamiento_de_aulas', 'backup_cron_hour');
+            $proghoraraw = trim((string)get_config('local_versionamiento_de_aulas', 'backup_cron_hour'));
 
-            // En ejecución automática sólo se procesa si existe fecha/hora programada.
-            if ($progfecha === '') {
+            // En ejecución automática sólo se procesa si existen fecha y hora válidas.
+            if ($progfecha === '' || $proghoraraw === '') {
+                return;
+            }
+
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $progfecha)) {
+                return;
+            }
+
+            if (!preg_match('/^\d{1,2}$/', $proghoraraw)) {
+                return;
+            }
+
+            $proghora = (int)$proghoraraw;
+            if ($proghora < 0 || $proghora > 23) {
                 return;
             }
 
