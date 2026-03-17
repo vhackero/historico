@@ -44,7 +44,7 @@ class generar_respaldos_task extends \core\task\scheduled_task {
                 return;
             }
 
-            $scheduled = \DateTimeImmutable::createFromFormat('Y-m-d H:i', $progfecha . ' ' . sprintf('%02d', $proghora));
+            $scheduled = \DateTimeImmutable::createFromFormat('Y-m-d H:i', $progfecha . ' ' . sprintf('%02d:00', $proghora));
             if (!$scheduled) {
                 // Si el valor configurado no es válido, no procesamos para evitar ejecuciones anticipadas.
                 return;
