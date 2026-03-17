@@ -22,16 +22,13 @@ class generar_respaldos_task extends \core\task\scheduled_task {
         global $DB, $CFG;
 
         $clearcronprogramming = false;
+        $scheduledtimestamp = null;
         if (!$manual) {
             $progfecha = trim((string)get_config('local_versionamiento_de_aulas', 'backup_cron_date'));
             $proghoraraw = trim((string)get_config('local_versionamiento_de_aulas', 'backup_cron_hour'));
 
             // En ejecución automática sólo se procesa si existen fecha y hora válidas.
             if ($progfecha === '' || $proghoraraw === '') {
-                return;
-            }
-
-            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $progfecha)) {
                 return;
             }
 
@@ -44,11 +41,29 @@ class generar_respaldos_task extends \core\task\scheduled_task {
                 return;
             }
 
-            $scheduled = \DateTimeImmutable::createFromFormat('Y-m-d H:i', $progfecha . ' ' . sprintf('%02d:00', $proghora));
+            $scheduleddate = null;
+            foreach (['Y-m-d', 'd/m/Y', 'd-m-Y'] as $dateformat) {
+                $parseddate = \DateTimeImmutable::createFromFormat($dateformat, $progfecha);
+                if ($parseddate instanceof \DateTimeImmutable) {
+                    $scheduleddate = $parseddate;
+                    break;
+                }
+            }
+
+            if (!$scheduleddate) {
+                return;
+            }
+
+            $scheduled = \DateTimeImmutable::createFromFormat(
+                'Y-m-d H:i',
+                $scheduleddate->format('Y-m-d') . ' ' . sprintf('%02d:00', $proghora)
+            );
             if (!$scheduled) {
                 // Si el valor configurado no es válido, no procesamos para evitar ejecuciones anticipadas.
                 return;
             }
+
+            $scheduledtimestamp = $scheduled->getTimestamp();
 
             $now = new \DateTimeImmutable('now');
             if ($now < $scheduled) {
@@ -61,6 +76,12 @@ class generar_respaldos_task extends \core\task\scheduled_task {
 
         $params = ['status' => 'pendiente'];
         $sql_where = "status = :status";
+
+        if (!$manual && $scheduledtimestamp !== null) {
+            // Solo procesa pendientes solicitados hasta la hora programada.
+            $sql_where .= " AND timecreated <= :scheduledts";
+            $params['scheduledts'] = $scheduledtimestamp;
+        }
 
         if ($manual && !empty($filter_ids)) {
             if (!is_array($filter_ids)) { $filter_ids = explode(',', $filter_ids); }
