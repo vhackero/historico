@@ -169,6 +169,16 @@ if ($file_id && $confirm && $puede_restaurar) {
                 'userid' => $original_user->id,
             ])->trigger();
         }
+
+        // Registro local para métricas del dashboard admin (compatibilidad con histórico del plugin).
+        $DB->insert_record('local_ver_aulas_logs', [
+            'userid' => $original_user->id,
+            'courseid' => $courseid,
+            'action' => 'course_merged',
+            'info' => 'Reutilización/fusión de aula completada desde la interfaz web.',
+            'timecreated' => time(),
+        ]);
+
         \core\session\manager::set_user($original_user);
         echo $OUTPUT->notification('Contenido fusionado con éxito.', 'notifysuccess');
         echo "<div class='text-center mt-3'><a href='{$CFG->wwwroot}/course/view.php?id={$courseid}' class='btn btn-success rounded-pill'>Volver al Curso</a></div>";
