@@ -39,7 +39,8 @@ $respaldo_fin    = get_config('local_versionamiento_de_aulas', 'respaldo_fin');
 $restaurar_inicio = get_config('local_versionamiento_de_aulas', 'restaurar_inicio');
 $restaurar_fin    = get_config('local_versionamiento_de_aulas', 'restaurar_fin');
 
-$retencion_secs = get_config('local_versionamiento_de_aulas', 'retention_days') ?: (60 * 60 * 24 * 30);
+$retentionreference = local_versionamiento_de_aulas_get_retention_reference_timestamp();
+$retentionexpiration = local_versionamiento_de_aulas_calculate_retention_expiration($retentionreference);
 
 $puede_respaldar = (!empty($respaldo_inicio) && !empty($respaldo_fin) && $hoy >= $respaldo_inicio && $hoy <= $respaldo_fin);
 $puede_restaurar = (!empty($restaurar_inicio) && !empty($restaurar_fin) && $hoy >= $restaurar_inicio && $hoy <= $restaurar_fin);
@@ -251,8 +252,7 @@ else {
 
         if ($registros) {
             foreach ($registros as $reg) {
-                $expiracion = $reg->timecreated + (int)$retencion_secs;
-                $dias_restantes = ceil(($expiracion - time()) / 86400);
+                $dias_restantes = ceil(($retentionexpiration - time()) / 86400);
 
                 $course_orig = $DB->get_record('course', ['id' => $reg->courseid], 'fullname, category');
                 $full_category_path = "Sin categoría";

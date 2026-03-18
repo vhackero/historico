@@ -49,7 +49,34 @@ if ($hassiteconfig) {
     $settings_tecnico->add(new admin_setting_configpasswordunmask('local_versionamiento_de_aulas/repository_password', 'Contraseña remota', 'Contraseña del usuario remoto (solo si usa autenticación por contraseña).', ''));
     $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/repository_private_key', 'Ruta de llave privada SSH', 'Ruta absoluta en el servidor Moodle (solo si usa autenticación por llave). Ej: /home/apache/.ssh/id_rsa', '', PARAM_RAW_TRIMMED));
     $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/repository_path', 'Ruta del repositorio', '', '/www/backups/', PARAM_TEXT));
-    $settings_tecnico->add(new admin_setting_configduration('local_versionamiento_de_aulas/retention_days', 'Días de disponibilidad del respaldo', '', 60 * 60 * 24 * 30));
+    $settings_tecnico->add(new admin_setting_heading('header_retencion', 'Disponibilidad del respaldo', 'Define el tiempo de disponibilidad contando desde la fecha en que se guarda esta configuración.'));
+    $retentionvalue = new admin_setting_configtext(
+        'local_versionamiento_de_aulas/retention_value',
+        'Tiempo de disponibilidad',
+        'Número de unidades de disponibilidad (por ejemplo: 2).',
+        '30',
+        PARAM_INT
+    );
+    $retentionvalue->set_updatedcallback('local_versionamiento_de_aulas_update_retention_reference');
+    $settings_tecnico->add($retentionvalue);
+
+    $retentionunit = new admin_setting_configselect(
+        'local_versionamiento_de_aulas/retention_unit',
+        'Unidad de disponibilidad',
+        'Unidad del tiempo configurado para disponibilidad.',
+        'day',
+        [
+            'second' => 'Segundos',
+            'minute' => 'Minutos',
+            'hour' => 'Horas',
+            'day' => 'Días',
+            'week' => 'Semanas',
+            'month' => 'Meses',
+            'year' => 'Años',
+        ]
+    );
+    $retentionunit->set_updatedcallback('local_versionamiento_de_aulas_update_retention_reference');
+    $settings_tecnico->add($retentionunit);
 
     $ADMIN->add('local_versionamiento_root', $settings_tecnico);
 

@@ -92,6 +92,92 @@ function local_versionamiento_de_aulas_validate_restore_course_format(int $cours
 }
 
 /**
+ * Callback de configuración: reinicia la fecha de referencia para disponibilidad.
+ */
+function local_versionamiento_de_aulas_update_retention_reference(): void {
+    set_config('retention_configured_at', time(), 'local_versionamiento_de_aulas');
+}
+
+/**
+ * Obtiene el timestamp base de disponibilidad (fecha en que se configuró el tiempo).
+ *
+ * @return int
+ */
+function local_versionamiento_de_aulas_get_retention_reference_timestamp(): int {
+    $configuredat = (int)get_config('local_versionamiento_de_aulas', 'retention_configured_at');
+    if ($configuredat > 0) {
+        return $configuredat;
+    }
+
+    $fallback = time();
+    set_config('retention_configured_at', $fallback, 'local_versionamiento_de_aulas');
+    return $fallback;
+}
+
+/**
+ * Calcula la fecha de expiración según valor/unidad de configuración (incluye meses y años).
+ *
+ * @param int $basetimestamp
+ * @return int
+ */
+function local_versionamiento_de_aulas_calculate_retention_expiration(int $basetimestamp): int {
+    $value = (int)get_config('local_versionamiento_de_aulas', 'retention_value');
+    $unit = trim((string)get_config('local_versionamiento_de_aulas', 'retention_unit'));
+
+    if ($value <= 0) {
+        $value = 30;
+    }
+    if ($unit === '') {
+        $unit = 'day';
+    }
+
+    $allowed = [
+        'second' => 'S',
+        'minute' => 'M',
+        'hour' => 'H',
+        'day' => 'D',
+        'week' => 'W',
+        'month' => 'MTH',
+        'year' => 'Y',
+    ];
+    if (!array_key_exists($unit, $allowed)) {
+        $unit = 'day';
+    }
+
+    $base = new \DateTimeImmutable('@' . $basetimestamp);
+    $base = $base->setTimezone(new \DateTimeZone(date_default_timezone_get()));
+
+    switch ($unit) {
+        case 'second':
+            $expires = $base->modify('+' . $value . ' seconds');
+            break;
+        case 'minute':
+            $expires = $base->modify('+' . $value . ' minutes');
+            break;
+        case 'hour':
+            $expires = $base->modify('+' . $value . ' hours');
+            break;
+        case 'day':
+            $expires = $base->modify('+' . $value . ' days');
+            break;
+        case 'week':
+            $expires = $base->modify('+' . $value . ' weeks');
+            break;
+        case 'month':
+            $expires = $base->modify('+' . $value . ' months');
+            break;
+        case 'year':
+            $expires = $base->modify('+' . $value . ' years');
+            break;
+        default:
+            $expires = $base->modify('+30 days');
+            break;
+    }
+
+    return (int)$expires->getTimestamp();
+}
+
+/**
  * Comprime un respaldo MBZ con /bin/zstd a nivel 20 y multihilo automático.
  *
  * @param string $mbzpath Ruta absoluta al archivo .mbz.
