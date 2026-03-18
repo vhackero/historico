@@ -24,7 +24,7 @@ echo $OUTPUT->header();
 // --- 1. MÉTRICAS ---
 $archivos   = $DB->count_records('local_ver_aulas_cola', ['status' => 'finalizado']);
 $pendientes = $DB->count_records('local_ver_aulas_cola', ['status' => 'pendiente']);
-$logs_count = $DB->count_records('local_ver_aulas_logs', ['action' => 'fusion_exitosa']);
+$logs_count = (int)$DB->count_records_select('local_ver_aulas_logs', "action IN ('fusion_exitosa', 'course_merged')");
 $url_cola   = new moodle_url('/local/versionamiento_de_aulas/admin_tasks.php');
 
 echo "
@@ -74,7 +74,8 @@ echo "
         <input type='text' name='search_user' class='form-control mr-2 shadow-sm' placeholder='Nombre o correo electrónico' value='".s($filter_user)."'>
         <select name='filter_action' class='form-control mr-2 shadow-sm'>
             <option value=''>-- Todos los estados --</option>
-            <option value='fusion_exitosa' ".($filter_action == 'fusion_exitosa' ? 'selected' : '').">Reutilización exitosa</option>
+            <option value='course_merged' ".($filter_action == 'course_merged' ? 'selected' : '').">Reutilización exitosa</option>
+            <option value='fusion_exitosa' ".($filter_action == 'fusion_exitosa' ? 'selected' : '').">Reutilización exitosa (legado)</option>
             <option value='pendiente' ".($filter_action == 'pendiente' ? 'selected' : '').">Respaldo pendiente</option>
             <option value='finalizado' ".($filter_action == 'finalizado' ? 'selected' : '').">Respaldo ejecutado</option>
             <option value='respaldo_eliminado' ".($filter_action == 'respaldo_eliminado' ? 'selected' : '').">Respaldo eliminado</option>
@@ -110,7 +111,7 @@ class versionamiento_admin_table extends table_sql {
     }
     function col_action($values) {
         $status = $values->action;
-        if ($status == 'fusion_exitosa') { $c = 'badge-fusion'; $t = 'Reutilización exitosa'; }
+        if ($status == 'fusion_exitosa' || $status == 'course_merged') { $c = 'badge-fusion'; $t = 'Reutilización exitosa'; }
         else if ($status == 'pendiente') { $c = 'badge-pending'; $t = 'Respaldo pendiente'; }
         else if ($status == 'finalizado') { $c = 'badge-finished'; $t = 'Respaldo ejecutado'; }
         else if ($status == 'respaldo_eliminado') { $c = 'badge-delete'; $t = 'Respaldo eliminado'; }
