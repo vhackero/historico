@@ -66,6 +66,8 @@ class restaurar_version_task {
                 ])->trigger();
             }
             get_file_packer('application/vnd.moodle.backup')->extract_to_pathname($mbzpath, $path);
+            $backupfirstsection = local_versionamiento_de_aulas_get_first_backup_section_data($path);
+            local_versionamiento_de_aulas_prepare_first_section_overwrite((int)$courseid, $backupfirstsection);
 
             $this->log("Archivo extraído. Configurando controlador...", $isweb, 40);
 

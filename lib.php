@@ -497,3 +497,128 @@ function local_versionamiento_de_aulas_delete_from_repositories(string $filename
         putenv('HOME');
     }
 }
+
+/**
+ * Marca como excluidas del respaldo las secciones del curso cuyo nombre/resumen coincidan.
+ *
+ * @param \backup_plan $plan
+ * @param int $courseid
+ * @param array $needles
+ * @return int[] IDs de secciones excluidas.
+ */
+function local_versionamiento_de_aulas_exclude_sections_from_backup(\backup_plan $plan, int $courseid, array $needles = ['planificación', 'planificacion']): array {
+    global $DB;
+
+    $sections = $DB->get_records('course_sections', ['course' => $courseid], 'section ASC', 'id,name,summary');
+    if (!$sections) {
+        return [];
+    }
+
+    $matchtext = static function(string $text) use ($needles): bool {
+        $value = core_text::strtolower(trim(strip_tags($text)));
+        if ($value === '') {
+            return false;
+        }
+        foreach ($needles as $needle) {
+            if (mb_stripos($value, core_text::strtolower($needle)) !== false) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    $excluded = [];
+    foreach ($sections as $section) {
+        if (!$matchtext((string)$section->name) && !$matchtext((string)$section->summary)) {
+            continue;
+        }
+
+        $candidates = [
+            'section_' . $section->id . '_included',
+            'section_' . $section->id,
+        ];
+        foreach ($candidates as $settingname) {
+            if ($plan->setting_exists($settingname)) {
+                $plan->get_setting($settingname)->set_value(0);
+                $excluded[] = (int)$section->id;
+                break;
+            }
+        }
+    }
+
+    return array_values(array_unique($excluded));
+}
+
+/**
+ * Obtiene metadatos de la primera sección temática (>0) de un respaldo extraído.
+ *
+ * @param string $restorepath
+ * @return array|null
+ */
+function local_versionamiento_de_aulas_get_first_backup_section_data(string $restorepath): ?array {
+    $files = glob(rtrim($restorepath, '/\\') . '/sections/section_*/section.xml');
+    if (!$files) {
+        return null;
+    }
+
+    $selected = null;
+    foreach ($files as $file) {
+        $xml = @simplexml_load_file($file);
+        if (!$xml) {
+            continue;
+        }
+        $number = (int)($xml->number ?? -1);
+        if ($number <= 0) {
+            continue;
+        }
+        $candidate = [
+            'number' => $number,
+            'name' => (string)($xml->name ?? ''),
+            'summary' => (string)($xml->summary ?? ''),
+            'summaryformat' => isset($xml->summaryformat) ? (int)$xml->summaryformat : FORMAT_HTML,
+        ];
+        if ($selected === null || $candidate['number'] < $selected['number']) {
+            $selected = $candidate;
+        }
+    }
+
+    return $selected;
+}
+
+/**
+ * Limpia por completo la primera sección temática del curso destino para sobrescribirla en una fusión.
+ *
+ * @param int $courseid
+ * @param array|null $backupsection
+ * @return int|null Número de sección limpiada.
+ */
+function local_versionamiento_de_aulas_prepare_first_section_overwrite(int $courseid, ?array $backupsection): ?int {
+    global $DB, $CFG;
+    require_once($CFG->dirroot . '/course/lib.php');
+
+    $targets = $DB->get_records_select('course_sections', 'course = :course AND section > 0', ['course' => $courseid], 'section ASC', 'id,section,name,summary,summaryformat', 0, 1);
+    $target = $targets ? reset($targets) : null;
+    if (empty($target)) {
+        return null;
+    }
+
+    $modinfo = get_fast_modinfo($courseid);
+    $cmids = $modinfo->sections[$target->section] ?? [];
+    foreach ($cmids as $cmid) {
+        course_delete_module($cmid);
+    }
+
+    $updatesection = (object)[
+        'id' => $target->id,
+        'sequence' => '',
+    ];
+    if (!empty($backupsection)) {
+        $updatesection->name = (string)($backupsection['name'] ?? '');
+        $updatesection->summary = (string)($backupsection['summary'] ?? '');
+        $updatesection->summaryformat = (int)($backupsection['summaryformat'] ?? FORMAT_HTML);
+    }
+    $DB->update_record('course_sections', $updatesection);
+    rebuild_course_cache($courseid, true);
+
+    return (int)$target->section;
+}
