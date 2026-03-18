@@ -550,7 +550,8 @@ function local_versionamiento_de_aulas_exclude_sections_from_backup(\backup_plan
 }
 
 /**
- * Obtiene metadatos de la primera sección temática (>0) de un respaldo extraído.
+ * Obtiene metadatos de la sección de Presentación desde un respaldo extraído.
+ * Prioridad: nombre "Presentación/Presentacion", luego número de sección 1, luego primera sección temática.
  *
  * @param string $restorepath
  * @return array|null
@@ -562,6 +563,13 @@ function local_versionamiento_de_aulas_get_first_backup_section_data(string $res
     }
 
     $selected = null;
+    $sectionone = null;
+    $firstthematic = null;
+    $ispresentation = static function(string $name): bool {
+        $value = core_text::strtolower(trim($name));
+        return (mb_stripos($value, 'presentación') !== false || mb_stripos($value, 'presentacion') !== false);
+    };
+
     foreach ($files as $file) {
         $xml = @simplexml_load_file($file);
         if (!$xml) {
@@ -577,16 +585,31 @@ function local_versionamiento_de_aulas_get_first_backup_section_data(string $res
             'summary' => (string)($xml->summary ?? ''),
             'summaryformat' => isset($xml->summaryformat) ? (int)$xml->summaryformat : FORMAT_HTML,
         ];
-        if ($selected === null || $candidate['number'] < $selected['number']) {
+
+        if ($ispresentation($candidate['name'])) {
             $selected = $candidate;
+            break;
+        }
+        if ($number === 1 && $sectionone === null) {
+            $sectionone = $candidate;
+        }
+        if ($firstthematic === null || $candidate['number'] < $firstthematic['number']) {
+            $firstthematic = $candidate;
         }
     }
 
-    return $selected;
+    if ($selected !== null) {
+        return $selected;
+    }
+    if ($sectionone !== null) {
+        return $sectionone;
+    }
+    return $firstthematic;
 }
 
 /**
- * Limpia por completo la primera sección temática del curso destino para sobrescribirla en una fusión.
+ * Limpia por completo la sección Presentación del curso destino para sobrescribirla en una fusión.
+ * Prioridad: nombre "Presentación/Presentacion", luego sección 1, luego primera sección temática.
  *
  * @param int $courseid
  * @param array|null $backupsection
@@ -596,8 +619,29 @@ function local_versionamiento_de_aulas_prepare_first_section_overwrite(int $cour
     global $DB, $CFG;
     require_once($CFG->dirroot . '/course/lib.php');
 
-    $targets = $DB->get_records_select('course_sections', 'course = :course AND section > 0', ['course' => $courseid], 'section ASC', 'id,section,name,summary,summaryformat', 0, 1);
-    $target = $targets ? reset($targets) : null;
+    $targets = $DB->get_records_select('course_sections', 'course = :course AND section > 0', ['course' => $courseid], 'section ASC', 'id,section,name,summary,summaryformat');
+    $target = null;
+    $fallbackone = null;
+    $fallbackfirst = null;
+    $ispresentation = static function(string $name): bool {
+        $value = core_text::strtolower(trim($name));
+        return (mb_stripos($value, 'presentación') !== false || mb_stripos($value, 'presentacion') !== false);
+    };
+    foreach ($targets as $section) {
+        if ($fallbackfirst === null) {
+            $fallbackfirst = $section;
+        }
+        if ((int)$section->section === 1 && $fallbackone === null) {
+            $fallbackone = $section;
+        }
+        if ($ispresentation((string)$section->name)) {
+            $target = $section;
+            break;
+        }
+    }
+    if ($target === null) {
+        $target = $fallbackone ?? $fallbackfirst;
+    }
     if (empty($target)) {
         return null;
     }
