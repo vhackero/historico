@@ -157,10 +157,12 @@ if ($file_id && $confirm && $puede_restaurar) {
             ])->trigger();
         }
         get_file_packer('application/vnd.moodle.backup')->extract_to_pathname($mbz_path, $temp_path);
-        $backupfirstsection = local_versionamiento_de_aulas_get_first_backup_section_data($temp_path);
-        local_versionamiento_de_aulas_prepare_first_section_overwrite($courseid, $backupfirstsection);
+        $selectivemergestate = local_versionamiento_de_aulas_prepare_selective_merge((int)$courseid);
         $rc = new \restore_controller($folder, $courseid, \backup::INTERACTIVE_NO, \backup::MODE_GENERAL, $admin_user->id, \backup::TARGET_EXISTING_ADDING);
-        if ($rc->execute_precheck()) { $rc->execute_plan(); }
+        if ($rc->execute_precheck()) {
+            $rc->execute_plan();
+            local_versionamiento_de_aulas_finalize_selective_merge((int)$courseid, $selectivemergestate);
+        }
         $rc->destroy();
 
         $eventclass = '\local_versionamiento_de_aulas\event\course_merged';

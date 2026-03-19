@@ -66,8 +66,7 @@ class restaurar_version_task {
                 ])->trigger();
             }
             get_file_packer('application/vnd.moodle.backup')->extract_to_pathname($mbzpath, $path);
-            $backupfirstsection = local_versionamiento_de_aulas_get_first_backup_section_data($path);
-            local_versionamiento_de_aulas_prepare_first_section_overwrite((int)$courseid, $backupfirstsection);
+            $selectivemergestate = local_versionamiento_de_aulas_prepare_selective_merge((int)$courseid);
 
             $this->log("Archivo extraído. Configurando controlador...", $isweb, 40);
 
@@ -83,6 +82,7 @@ class restaurar_version_task {
             if ($rc->execute_precheck()) {
                 $this->log("Validación exitosa. Sobrescribiendo aula...", $isweb, 70);
                 $rc->execute_plan();
+                local_versionamiento_de_aulas_finalize_selective_merge((int)$courseid, $selectivemergestate);
                 $this->log("✅ Aula restaurada con éxito.", $isweb, 100);
             } else {
                 throw new \moodle_exception('error_precheck', 'local_versionamiento_de_aulas');

@@ -770,3 +770,167 @@ function local_versionamiento_de_aulas_prepare_first_section_overwrite(int $cour
 
     return (int)$target->section;
 }
+
+/**
+ * Normaliza texto para comparaciones flexibles (sin tildes, minúsculas).
+ *
+ * @param string $value
+ * @return string
+ */
+function local_versionamiento_de_aulas_normalize_text(string $value): string {
+    $value = core_text::strtolower(trim($value));
+    $from = ['á', 'é', 'í', 'ó', 'ú', 'ü', 'ñ'];
+    $to = ['a', 'e', 'i', 'o', 'u', 'u', 'n'];
+    return str_replace($from, $to, $value);
+}
+
+/**
+ * Regla de fusión por nombre de sección.
+ *
+ * @param string $sectionname
+ * @return array|null
+ */
+function local_versionamiento_de_aulas_get_section_merge_rule(string $sectionname): ?array {
+    $name = local_versionamiento_de_aulas_normalize_text($sectionname);
+
+    if ($name === '' || strpos($name, 'presentacion') !== false) {
+        return [
+            'overwrite_labels' => 2,
+            'merge_nonlabels' => false,
+        ];
+    }
+
+    if (strpos($name, 'planificacion') !== false) {
+        return [
+            'overwrite_labels' => 2,
+            'merge_nonlabels' => true,
+        ];
+    }
+
+    if (preg_match('/^semana\s*([0-9]{1,2})\b/', $name, $matches)) {
+        $week = (int)$matches[1];
+        if ($week >= 1 && $week <= 10) {
+            return [
+                'overwrite_labels' => 1,
+                'merge_nonlabels' => true,
+            ];
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Prepara fusión selectiva:
+ * - borra primeras etiquetas existentes según regla por sección,
+ * - deja intactos recursos existentes no etiqueta.
+ *
+ * @param int $courseid
+ * @return array Estado para aplicar limpieza posterior.
+ */
+function local_versionamiento_de_aulas_prepare_selective_merge(int $courseid): array {
+    global $DB, $CFG;
+    require_once($CFG->dirroot . '/course/lib.php');
+
+    $sections = $DB->get_records('course_sections', ['course' => $courseid], 'section ASC', 'id,section,name');
+    $modinfo = get_fast_modinfo($courseid);
+    $rulesbysection = [];
+
+    foreach ($sections as $section) {
+        $rulename = (string)$section->name;
+        if ((int)$section->section === 0 && trim($rulename) === '') {
+            $rulename = 'Presentación';
+        }
+        $rule = local_versionamiento_de_aulas_get_section_merge_rule($rulename);
+        if ($rule === null) {
+            continue;
+        }
+
+        $sectionnum = (int)$section->section;
+        $rulesbysection[$sectionnum] = $rule;
+        $cmids = $modinfo->sections[$sectionnum] ?? [];
+
+        $labelcmids = [];
+        foreach ($cmids as $cmid) {
+            if (!isset($modinfo->cms[$cmid])) {
+                continue;
+            }
+            if ($modinfo->cms[$cmid]->modname === 'label') {
+                $labelcmids[] = (int)$cmid;
+            }
+        }
+
+        $todelete = array_slice($labelcmids, 0, (int)$rule['overwrite_labels']);
+        foreach ($todelete as $cmid) {
+            course_delete_module($cmid);
+        }
+    }
+
+    rebuild_course_cache($courseid, true);
+    $modinfoafter = get_fast_modinfo($courseid);
+    $baseline = [];
+    foreach (array_keys($rulesbysection) as $sectionnum) {
+        $baseline[$sectionnum] = array_values($modinfoafter->sections[$sectionnum] ?? []);
+    }
+
+    return [
+        'rules' => $rulesbysection,
+        'baseline' => $baseline,
+    ];
+}
+
+/**
+ * Limpieza posterior a la restauración para conservar solo lo permitido por sección.
+ *
+ * @param int $courseid
+ * @param array $state
+ * @return void
+ */
+function local_versionamiento_de_aulas_finalize_selective_merge(int $courseid, array $state): void {
+    global $CFG;
+    require_once($CFG->dirroot . '/course/lib.php');
+
+    $rules = $state['rules'] ?? [];
+    $baseline = $state['baseline'] ?? [];
+    if (empty($rules)) {
+        return;
+    }
+
+    $modinfo = get_fast_modinfo($courseid);
+    foreach ($rules as $sectionnum => $rule) {
+        $before = $baseline[$sectionnum] ?? [];
+        $current = array_values($modinfo->sections[(int)$sectionnum] ?? []);
+        $newcmids = array_values(array_diff($current, $before));
+        if (empty($newcmids)) {
+            continue;
+        }
+
+        $newlabels = [];
+        $newnonlabels = [];
+        foreach ($newcmids as $cmid) {
+            if (!isset($modinfo->cms[$cmid])) {
+                continue;
+            }
+            if ($modinfo->cms[$cmid]->modname === 'label') {
+                $newlabels[] = (int)$cmid;
+            } else {
+                $newnonlabels[] = (int)$cmid;
+            }
+        }
+
+        $keeplabels = (int)($rule['overwrite_labels'] ?? 0);
+        $labelstodelete = array_slice($newlabels, $keeplabels);
+        foreach ($labelstodelete as $cmid) {
+            course_delete_module($cmid);
+        }
+
+        $mergenonlabels = !empty($rule['merge_nonlabels']);
+        if (!$mergenonlabels) {
+            foreach ($newnonlabels as $cmid) {
+                course_delete_module($cmid);
+            }
+        }
+    }
+
+    rebuild_course_cache($courseid, true);
+}
