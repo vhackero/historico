@@ -800,7 +800,7 @@ function local_versionamiento_de_aulas_get_section_merge_rule(string $sectionnam
         ];
     }
 
-    if (strpos($name, 'planificacion') !== false) {
+    if (strpos($name, 'planificacion') !== false || strpos($name, 'planeacion') !== false) {
         return [
             'overwrite_labels' => 2,
             'merge_nonlabels' => true,
@@ -832,12 +832,15 @@ function local_versionamiento_de_aulas_prepare_selective_merge(int $courseid): a
     global $DB, $CFG;
     require_once($CFG->dirroot . '/course/lib.php');
 
-    $sections = $DB->get_records('course_sections', ['course' => $courseid], 'section ASC', 'id,section,name');
+    $sections = $DB->get_records('course_sections', ['course' => $courseid], 'section ASC', 'id,section,name,summary');
     $modinfo = get_fast_modinfo($courseid);
     $rulesbysection = [];
 
     foreach ($sections as $section) {
-        $rulename = (string)$section->name;
+        $rulename = trim((string)$section->name);
+        if ($rulename === '') {
+            $rulename = trim(strip_tags((string)$section->summary));
+        }
         if ((int)$section->section === 0 && trim($rulename) === '') {
             $rulename = 'Presentación';
         }
@@ -887,7 +890,7 @@ function local_versionamiento_de_aulas_prepare_selective_merge(int $courseid): a
  * @return void
  */
 function local_versionamiento_de_aulas_finalize_selective_merge(int $courseid, array $state): void {
-    global $CFG;
+    global $CFG, $DB;
     require_once($CFG->dirroot . '/course/lib.php');
 
     $rules = $state['rules'] ?? [];
@@ -897,6 +900,7 @@ function local_versionamiento_de_aulas_finalize_selective_merge(int $courseid, a
     }
 
     $modinfo = get_fast_modinfo($courseid);
+    $labelsfirstbysection = [];
     foreach ($rules as $sectionnum => $rule) {
         $before = $baseline[$sectionnum] ?? [];
         $current = array_values($modinfo->sections[(int)$sectionnum] ?? []);
@@ -919,6 +923,7 @@ function local_versionamiento_de_aulas_finalize_selective_merge(int $courseid, a
         }
 
         $keeplabels = (int)($rule['overwrite_labels'] ?? 0);
+        $labelskept = array_slice($newlabels, 0, $keeplabels);
         $labelstodelete = array_slice($newlabels, $keeplabels);
         foreach ($labelstodelete as $cmid) {
             course_delete_module($cmid);
@@ -929,6 +934,51 @@ function local_versionamiento_de_aulas_finalize_selective_merge(int $courseid, a
             foreach ($newnonlabels as $cmid) {
                 course_delete_module($cmid);
             }
+        }
+
+        if (!empty($labelskept)) {
+            $labelsfirstbysection[(int)$sectionnum] = $labelskept;
+        }
+    }
+
+    if (!empty($labelsfirstbysection)) {
+        $sections = $DB->get_records('course_sections', ['course' => $courseid], 'section ASC', 'id,section,sequence');
+        foreach ($labelsfirstbysection as $sectionnum => $labelskept) {
+            $sectionrecord = null;
+            foreach ($sections as $sectionrow) {
+                if ((int)$sectionrow->section === (int)$sectionnum) {
+                    $sectionrecord = $sectionrow;
+                    break;
+                }
+            }
+            if (!$sectionrecord) {
+                continue;
+            }
+
+            $sequence = trim((string)$sectionrecord->sequence);
+            if ($sequence === '') {
+                continue;
+            }
+            $sequenceids = array_values(array_filter(array_map('intval', explode(',', $sequence))));
+            if (empty($sequenceids)) {
+                continue;
+            }
+
+            $keptatfront = [];
+            foreach ($labelskept as $cmid) {
+                if (in_array((int)$cmid, $sequenceids, true)) {
+                    $keptatfront[] = (int)$cmid;
+                }
+            }
+            if (empty($keptatfront)) {
+                continue;
+            }
+
+            $remaining = array_values(array_filter($sequenceids, function($cmid) use ($keptatfront) {
+                return !in_array((int)$cmid, $keptatfront, true);
+            }));
+            $newsequence = implode(',', array_merge($keptatfront, $remaining));
+            $DB->set_field('course_sections', 'sequence', $newsequence, ['id' => $sectionrecord->id]);
         }
     }
 
