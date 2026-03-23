@@ -837,6 +837,15 @@ function local_versionamiento_de_aulas_prepare_selective_merge(int $courseid): a
     $rulesbysection = [];
 
     foreach ($sections as $section) {
+        $sectionnum = (int)$section->section;
+        if ($sectionnum === 0) {
+            $rule = ['overwrite_labels' => 2, 'merge_nonlabels' => false]; // Presentación.
+        } else if ($sectionnum === 1) {
+            $rule = ['overwrite_labels' => 2, 'merge_nonlabels' => true]; // Planificación.
+        } else {
+            $rule = null;
+        }
+
         $rulename = trim((string)$section->name);
         if ($rulename === '') {
             $rulename = trim(strip_tags((string)$section->summary));
@@ -844,12 +853,13 @@ function local_versionamiento_de_aulas_prepare_selective_merge(int $courseid): a
         if ((int)$section->section === 0 && trim($rulename) === '') {
             $rulename = 'Presentación';
         }
-        $rule = local_versionamiento_de_aulas_get_section_merge_rule($rulename);
+        if ($rule === null) {
+            $rule = local_versionamiento_de_aulas_get_section_merge_rule($rulename);
+        }
         if ($rule === null) {
             continue;
         }
 
-        $sectionnum = (int)$section->section;
         $rulesbysection[$sectionnum] = $rule;
         $cmids = $modinfo->sections[$sectionnum] ?? [];
 
