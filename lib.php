@@ -802,7 +802,7 @@ function local_versionamiento_de_aulas_get_section_merge_rule(string $sectionnam
 
     if (strpos($name, 'planificacion') !== false || strpos($name, 'planeacion') !== false) {
         return [
-            'overwrite_labels' => 2,
+            'overwrite_labels' => 3,
             'merge_nonlabels' => true,
         ];
     }
@@ -841,7 +841,7 @@ function local_versionamiento_de_aulas_prepare_selective_merge(int $courseid): a
         if ($sectionnum === 0) {
             $rule = ['overwrite_labels' => 2, 'merge_nonlabels' => false]; // Presentación.
         } else if ($sectionnum === 1) {
-            $rule = ['overwrite_labels' => 2, 'merge_nonlabels' => true]; // Planificación.
+            $rule = ['overwrite_labels' => 3, 'merge_nonlabels' => true]; // Planificación.
         } else {
             $rule = null;
         }
