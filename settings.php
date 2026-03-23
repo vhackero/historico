@@ -2,6 +2,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig) {
+    global $DB;
+
     // 1. CATEGORÍA RAÍZ
     $ADMIN->add('localplugins', new admin_category('local_versionamiento_root', 'Histórico y reutilización de Aulas'));
 
@@ -38,6 +40,22 @@ if ($hassiteconfig) {
 
     // Campos originales de limpieza y repositorio
     $settings_tecnico->add(new admin_setting_heading('header_tecnico', 'Configuración Técnica', ''));
+    $roleoptions = [];
+    $roles = $DB->get_records('role', null, 'sortorder ASC, id ASC', 'id,shortname,name');
+    foreach ($roles as $role) {
+        $label = trim((string)$role->name);
+        if ($label === '') {
+            $label = (string)$role->shortname;
+        }
+        $roleoptions[(int)$role->id] = $label . ' (ID ' . (int)$role->id . ')';
+    }
+    $settings_tecnico->add(new admin_setting_configmultiselect(
+        'local_versionamiento_de_aulas/allowed_role_ids',
+        'Roles permitidos para respaldos',
+        'Selecciona los roles que pueden solicitar respaldos y reutilizar contenido en el curso.',
+        [10],
+        $roleoptions
+    ));
     $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/expected_course_format', 'Formato de curso esperado para restauración', 'Shortname del formato esperado (ej: buttons para Formato de botones). Si el curso tiene otro formato, se mostrará advertencia pero la restauración continuará.', 'buttons', PARAM_ALPHANUMEXT));
     $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/cron_eliminar_mbz_fecha', 'Fecha para eliminar archivos .mbz', '', '', PARAM_TEXT));
     $settings_tecnico->add(new admin_setting_configtext('local_versionamiento_de_aulas/local_repository_path', 'Ruta local de respaldos', 'Ruta local en el servidor Moodle donde se almacenarán los respaldos .zst cuando NO se use repositorio remoto.', '/www/backups/', PARAM_TEXT));

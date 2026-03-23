@@ -19,12 +19,10 @@ $course = $DB->get_record('course', array('id' => $courseid), '*', MUST_EXIST);
 
 require_login($course);
 
-// ID del rol Docente en Línea
-$rol_dl = 10;
 $context = context_course::instance($courseid);
 
-if (!$DB->record_exists('role_assignments', ['userid' => $USER->id, 'roleid' => $rol_dl, 'contextid' => $context->id])) {
-    throw new moodle_exception('nopermissions', 'error', '', 'Acceso exclusivo para Docente en Línea.');
+if (!local_versionamiento_de_aulas_user_has_allowed_role((int)$USER->id, (int)$context->id)) {
+    throw new moodle_exception('nopermissions', 'error', '', 'Acceso exclusivo para roles configurados en el plugin.');
 }
 
 $PAGE->set_url(new moodle_url('/local/versionamiento_de_aulas/index.php', array('id' => $courseid)));

@@ -2,15 +2,54 @@
 defined('MOODLE_INTERNAL') || die();
 
 /**
+ * Obtiene IDs de roles permitidos para solicitar/usar respaldos.
+ *
+ * @return int[]
+ */
+function local_versionamiento_de_aulas_get_allowed_role_ids(): array {
+    $raw = trim((string)get_config('local_versionamiento_de_aulas', 'allowed_role_ids'));
+    if ($raw === '') {
+        return [10];
+    }
+
+    $parts = preg_split('/[\s,;]+/', $raw);
+    $ids = [];
+    foreach ($parts as $part) {
+        $id = (int)$part;
+        if ($id > 0) {
+            $ids[] = $id;
+        }
+    }
+
+    $ids = array_values(array_unique($ids));
+    return empty($ids) ? [10] : $ids;
+}
+
+/**
+ * Verifica si un usuario tiene alguno de los roles configurados en un contexto.
+ *
+ * @param int $userid
+ * @param int $contextid
+ * @return bool
+ */
+function local_versionamiento_de_aulas_user_has_allowed_role(int $userid, int $contextid): bool {
+    $roleids = local_versionamiento_de_aulas_get_allowed_role_ids();
+    foreach ($roleids as $roleid) {
+        if (user_has_role_assignment($userid, (int)$roleid, $contextid)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
  * Inyecta el acceso al versionamiento automáticamente en el menú de navegación del curso.
  */
 function local_versionamiento_de_aulas_extend_navigation_course($navigation, $course, $context) {
     global $USER, $DB;
 
-    $rol_id_permitido = 10; // ID del rol Docente en Línea
-
     // Verificamos si el usuario es DL en este curso específico
-    if (user_has_role_assignment($USER->id, $rol_id_permitido, $context->id)) {
+    if (local_versionamiento_de_aulas_user_has_allowed_role((int)$USER->id, (int)$context->id)) {
 
         // CORRECCIÓN: Se añade el parámetro 'id' del curso actual a la URL
         $url = new moodle_url('/local/versionamiento_de_aulas/index.php', array('id' => $course->id));
