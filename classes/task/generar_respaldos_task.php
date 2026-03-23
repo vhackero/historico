@@ -121,6 +121,7 @@ class generar_respaldos_task extends \core\task\scheduled_task {
 
                 $plan = $bc->get_plan();
                 if ($plan->setting_exists('users')) { $plan->get_setting('users')->set_value(0); }
+                local_versionamiento_de_aulas_exclude_sections_from_backup($plan, (int)$t->courseid);
                 $bc->execute_plan();
 
                 $results = $bc->get_results();
