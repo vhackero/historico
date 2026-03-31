@@ -110,7 +110,16 @@ if (optional_param('eliminar', 0, PARAM_INT) && $respaldo_actual) {
 // --- 3. LÓGICA DE FUSIÓN (RESTORE) ---
 $file_id = optional_param('file_id', 0, PARAM_INT);
 $confirm = optional_param('confirm', 0, PARAM_INT);
+$alreadymerged = $DB->record_exists('local_ver_aulas_logs', [
+    'userid' => $USER->id,
+    'courseid' => $courseid,
+    'action' => 'course_merged',
+]);
 if ($file_id && $confirm && $puede_restaurar) {
+    if ($alreadymerged) {
+        redirect($PAGE->url, 'Ya realizaste una fusión en esta aula. Solo se permite una fusión por curso.', 2, \core\output\notification::NOTIFY_WARNING);
+    }
+
     echo $OUTPUT->header();
     $admin_user = get_admin();
     $original_user = $USER;
@@ -284,8 +293,12 @@ else {
                 echo "</div>";
 
                 if ($dias_restantes > 0) {
-                    $url = new moodle_url($PAGE->url, ['file_id' => $reg->backupfileid, 'confirm' => 1]);
-                    echo "<div><a href='{$url}' class='btn-inst shadow-sm' style='background-color: #611232!important;' onclick='return confirm(\"¿Desea reutilizar el contenido de este respaldo en su Aula actual?\")'>Reutilizar</a></div>";
+                    if ($alreadymerged) {
+                        echo "<div><button class='btn-inst shadow-sm disabled' style='background-color: #999!important; cursor:not-allowed;' disabled title='Ya realizaste una fusión en esta aula'>Reutilizar</button></div>";
+                    } else {
+                        $url = new moodle_url($PAGE->url, ['file_id' => $reg->backupfileid, 'confirm' => 1]);
+                        echo "<div><a href='{$url}' class='btn-inst shadow-sm fusion-btn' style='background-color: #611232!important;' onclick='if(this.dataset.clicked===\"1\"){return false;} if(!confirm(\"¿Desea reutilizar el contenido de este respaldo en su Aula actual?\")){return false;} this.dataset.clicked=\"1\"; this.classList.add(\"disabled\"); this.style.pointerEvents=\"none\"; this.style.opacity=\"0.65\"; return true;'>Reutilizar</a></div>";
+                    }
                 }
                 echo "</div>";
             }
