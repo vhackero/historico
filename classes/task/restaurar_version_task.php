@@ -77,6 +77,10 @@ class restaurar_version_task {
             $rc = new \restore_controller($folder, $courseid,
                 \backup::INTERACTIVE_NO, \backup::MODE_SAMESITE, $userid,
                 \backup::TARGET_EXISTING_DELETING);
+            $restoreplan = $rc->get_plan();
+            if ($restoreplan->setting_exists('groups')) {
+                $restoreplan->get_setting('groups')->set_value(0);
+            }
 
             // 4. Ejecutar validaciones y plan de restauración
             if ($rc->execute_precheck()) {

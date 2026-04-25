@@ -123,6 +123,9 @@ class generar_respaldos_task extends \core\task\scheduled_task {
                 if ($plan->setting_exists('users')) {
                     $plan->get_setting('users')->set_value(0);
                 }
+                if ($plan->setting_exists('groups')) {
+                    $plan->get_setting('groups')->set_value(0);
+                }
                 $bc->execute_plan();
 
                 $results = $bc->get_results();
